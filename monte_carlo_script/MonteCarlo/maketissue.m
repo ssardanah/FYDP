@@ -37,9 +37,9 @@ home
 SAVEON      = 1;        % 1 = save myname_T.bin, myname_H.mci 
                         % 0 = don't save. Just check the program.
 
-myname      = 'skinvessel';% name for files: myname_T.bin, myname_H.mci  
+myname      = 'skinvesselSteph';% name for files: myname_T.bin, myname_H.mci  
 time_min    = 10;      	% time duration of the simulation [min] <----- run time -----
-nm          = 532;   	% desired wavelength of simulation
+nm          = 940;   	% desired wavelength of simulation
 Nbins       = 200;    	% # of bins in each dimension of cube 
 binsize     = 0.0005; 	% size of each bin, eg. [cm] or [mm]
 
@@ -51,7 +51,8 @@ launchflag  = 0;        % 0 = let mcxyz.c calculate launch trajectory
 boundaryflag = 2;       % 0 = no boundaries, 1 = escape at boundaries
                         % 2 = escape at surface only. No x, y, bottom z
                         % boundaries
-
+                        
+% Light source information 
 % Sets position of source
 xs          = 0;      	% x of source
 ys          = 0;        % y of source
@@ -78,7 +79,7 @@ uz0         = sqrt(1 - ux0^2 - uy0^2); % such that ux^2 + uy^2 + uz^2 = 1
 %%%
 
 % Create tissue properties
-tissue = makeTissueList(nm); % also --> global tissue(1:Nt).s
+tissue = makeTissueList_stephanie(nm); % also --> global tissue(1:Nt).s
 Nt = length(tissue);
 for i=1:Nt
     muav(i)  = tissue(i).mua;
