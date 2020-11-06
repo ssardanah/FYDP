@@ -37,7 +37,10 @@ home
 SAVEON      = 1;        % 1 = save myname_T.bin, myname_H.mci 
                         % 0 = don't save. Just check the program.
 
-myname      = 'skinvesselSteph';% name for files: myname_T.bin, myname_H.mci  
+VESSEL      = 1;        % 1 = create a blood vessel
+                        % 0 = Do not create blood vessel
+                        
+myname      = 'skinvesselSteph3';% name for files: myname_T.bin, myname_H.mci  
 time_min    = 10;      	% time duration of the simulation [min] <----- run time -----
 nm          = 940;   	% desired wavelength of simulation
 Nbins       = 200;    	% # of bins in each dimension of cube 
@@ -79,7 +82,7 @@ uz0         = sqrt(1 - ux0^2 - uy0^2); % such that ux^2 + uy^2 + uz^2 = 1
 %%%
 
 % Create tissue properties
-tissue = makeTissueList_stephanie(nm); % also --> global tissue(1:Nt).s
+tissue = makeTissueList(nm); % also --> global tissue(1:Nt).s
 Nt = length(tissue);
 for i=1:Nt
     muav(i)  = tissue(i).mua;
@@ -114,22 +117,22 @@ if isinf(zfocus), zfocus = 1e12; end
 
 T = double(zeros(Ny,Nx,Nz)); 
 
-T = T + 4;      % fill background with skin (dermis)
+T = T + 4;      % fill background with fat (Adipose)
 
 zsurf = 0.0100;  % position of air/skin surface
 
 for iz=1:Nz % for every depth z(iz)
 
     % air
-    if iz<=round(zsurf/dz)
-        T(:,:,iz) = 2; 
-    end
+%     if iz<=round(zsurf/dz)
+%         T(:,:,iz) = 2; 
+%     end
 
     % epidermis (60 um thick)
-    if iz>round(zsurf/dz) & iz<=round((zsurf+0.0060)/dz)
-        T(:,:,iz) = 5; 
-    end
-
+%     if iz>round(zsurf/dz) & iz<=round((zsurf+0.0060)/dz)
+%         T(:,:,iz) = 4; 
+%     end
+%  
     % blood vessel @ xc, zc, radius, oriented along y axis
     xc      = 0;            % [cm], center of blood vessel
     zc      = Nz/2*dz;     	% [cm], center of blood vessel
@@ -143,7 +146,7 @@ for iz=1:Nz % for every depth z(iz)
             end
 
     end %ix
-    
+
 end % iz
 
 

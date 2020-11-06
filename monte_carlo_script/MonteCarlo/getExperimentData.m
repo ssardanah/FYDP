@@ -54,6 +54,6 @@ toc
 s.FluenceArray = reshape(Data,s.Ny,s.Nx,s.Nz); % F(y,x,z)
 
 s.x = ([1:s.Nx]-s.Nx/2-1/2)*s.dx;
-s.y = ([1:s.Ny]-s.Ny/2-1/2)*s.dx;
+s.y = ([1:s.Ny]-s.Ny/2-1/2)*s.dy;
 s.z = ([1:s.Nz]-1/2)*s.dz;
 
