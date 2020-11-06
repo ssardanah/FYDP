@@ -38,6 +38,10 @@
 #include <string.h>
 #include <stdlib.h>
 #include <time.h>
+#include <conio.h> 
+#include <sys/types.h> 
+#include <sys/stat.h> 
+#include <unistd.h> 
 
 #define Ntiss		19          /* Number of tissue types. */
 #define STRLEN 		32          /* String length. */
@@ -54,6 +58,7 @@
 #define RandomNum   (double) RandomGen(1, 0, NULL) /* Calls for a random number. */
 #define COS90D      1.0E-6          /* If cos(theta) <= COS90D, theta >= PI/2 - 1e-6 rad. */
 #define ONE_MINUS_COSZERO 1.0E-12   /* If 1-cos(theta) <= ONE_MINUS_COSZERO, fabs(theta) <= 1e-6 rad. */
+#define OUTPUT_DIR_NAME "OutputAndData"
 /* If 1+cos(theta) <= ONE_MINUS_COSZERO, fabs(PI-theta) <= 1e-6 rad. */
 
 /* DECLARE FUNCTIONS */
@@ -137,14 +142,29 @@ int main(int argc, const char * argv[]) {
 	float 	gv[Ntiss];              // anisotropy of scattering
     
 	/* Input/Output */
-	char   	myname[STRLEN];		// Holds the user's choice of myname, used in input and output files. 
+	char   	myname[STRLEN];		// Holds the user's choice of myname, used in input and output files. 	
+	char*   path;
 	char	filename[STRLEN];     // temporary filename for writing output.
     FILE*	fid=NULL;               // file ID pointer 
     char    buf[32];                // buffer for reading header.dat
     
+    //making file to store output of Monte Carlo called "OutputAndData"
+    int status;
+    status = mkdir(OUTPUT_DIR_NAME);
+
+    if(!status)
+    {
+    	printf("Output directory created\n");
+    }
+    else 
+    {
+    	printf("Error creating output folder %d\n",status);
+    }
+    path = OUTPUT_DIR_NAME "/";
     strcpy(myname, argv[1]);    // acquire name from argument of function call by user.
     printf("name = %s\n",myname);
     
+
 	/**** INPUT FILES *****/
     /* IMPORT myname_H.mci */
     strcpy(filename,myname);
@@ -214,7 +234,6 @@ int main(int argc, const char * argv[]) {
 			sscanf(buf, "%f", &gv[i]);		// anisotropy of scatter [dimensionless]
 		}    
     fclose(fid);
-    
     printf("time_min = %0.2f min\n",time_min);
     printf("Nx = %d, dx = %0.4f [cm]\n",Nx,dx);
     printf("Ny = %d, dy = %0.4f [cm]\n",Ny,dy);
@@ -261,6 +280,7 @@ int main(int argc, const char * argv[]) {
 
     // SAVE optical properties, for later use by MATLAB.
 	strcpy(filename,myname);
+	strcpy(filename,strcat(path, filename));
 	strcat(filename,"_props.m");
 	fid = fopen(filename,"w");
 	for (i=1; i<=Nt; i++) {
@@ -626,7 +646,9 @@ int main(int argc, const char * argv[]) {
     strcpy(filename,myname);
     strcat(filename,"_F.bin");
     printf("saving %s\n",filename);
-    fid = fopen(filename, "wb");   /* 3D voxel output */
+    path = strcat(path, filename);
+    printf("Output file %s",path);
+    fid = fopen(path, "wb");   /* 3D voxel output */
     fwrite(F, sizeof(float), NN, fid);
     fclose(fid);
     
