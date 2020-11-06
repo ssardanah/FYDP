@@ -1,17 +1,15 @@
-% 
-
 home; clear
 format compact
 commandwindow
 
-expData = getExperimentData('skinvesselSteph3'); % Shifted to be F(x,y,z)
+expData = getExperimentData('skinvesselSteph3');
 noVesselData = getExperimentData('ControlSkinvessel');
 %skinvesselSteph
 
 
 PLOT = 1; % Plot = 1 Plot first experiment
-         % Plot = 2 Plot first and second experiment
-         % Plot = 3 Plot First experiment subtracted by second experiment
+          % Plot = 2 Plot first and second experiment
+          % Plot = 3 Plot First experiment subtracted by second experiment
 
 SAVEPICSON = 0;
 if SAVEPICSON
@@ -27,7 +25,7 @@ else
     subplot(2,2,1)
 end
 
-BV_2D = squeeze(expData.FluenceArray(:,:,expData.Nz/2));
+BV_2D = squeeze(expData.FluenceArray(:,:,expData.Nz));
 imagesc(expData.x,expData.y,((BV_2D)))%F(x,y,z) 
 hold on
 colorbar
@@ -44,7 +42,6 @@ else
 end
 Temp = sum(BV_2D,1);
 plot(expData.x,Temp)
-Temp1 = expData.FluenceArray(:,:,1);
 xlabel('x [cm]')
 ylabel('Sum of Fluence in y-dir')
 title('BV Fluence, t=10min') 
