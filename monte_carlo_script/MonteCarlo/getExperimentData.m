@@ -3,7 +3,7 @@
 function s = getExperimentData(myname)
 
 s = struct;
-
+s.name = myname;
 filename = sprintf('%s_H.mci',myname);
 disp(['loading ' filename])
 fid = fopen(filename, 'r');
