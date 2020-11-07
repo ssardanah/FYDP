@@ -1,5 +1,5 @@
 % maketissue_18apr17.m
-% maketissue.m
+% maketissu
 %   Creates a cube of optical property pointers,T(y,x,z), saved in
 %       myname_T.bin = a tissue structure file
 %   which specifies a complex tissue for use by mcxyz.c.
