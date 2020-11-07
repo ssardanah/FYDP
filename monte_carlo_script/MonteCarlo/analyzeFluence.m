@@ -3,17 +3,19 @@ format compact
 commandwindow
 
 expData = getExperimentData('lowSkinvessel');
-noVesselData = getExperimentData('ControlSkinvessel');
+noVesselData = getExperimentData('ControlSkinvessel'); 
 
 % expData.name = '<REPLACE_ME_FOR_GRAPHS>';
 % noVesselData.name = '<REPLACE_ME_FOR_GRAPHS>';
 
 
-PLOT = 2; % Plot = 1 Plot first experiment
+PLOT = 1; % Plot = 1 Plot first experiment
           % Plot = 2 Plot first and second experiment
           % Plot = 3 Plot First experiment subtracted by second experiment
-
-SAVEPICSON = 0;
+          % Plot = CMOS display fluence read by CMOS sensor
+TITLE_FONT_SIZE = 12;
+AZES_FONT_SIZE = 6;
+SAVEPICSON = 1;
 if SAVEPICSON
     sz = 10; fz = 7; fz2 = 5; % to use savepic.m
 else
@@ -34,7 +36,8 @@ hold on
 colorbar
 xlabel('x [cm]')
 ylabel('y [cm]')
-title(strcat(expData.name,' % Fluence At Bottom of Tissue, t= ',string(expData.time_min),'min'))
+title(strcat(expData.name,' % Fluence At Bottom of Tissue, t= ',string(expData.time_min),'min'),'FontSize',TITLE_FONT_SIZE)
+set(gca,'FontSize',AZES_FONT_SIZE)
 colormap(makec2f)
 %axis equal image
 
@@ -47,8 +50,8 @@ Temp = sum(BV_2D,1)/(sum(sum(expData.FluenceArray(:,:,1))))*100;
 plot(expData.x,Temp)
 xlabel('x [cm]')
 ylabel('Sum of % Fluence along y')
-title(strcat(expData.name,' % Fluence, t= ',string(expData.time_min),'min'))
-
+title(strcat(expData.name,' % Fluence, t= ',string(expData.time_min),'min'),'FontSize',TITLE_FONT_SIZE)
+set(gca,'FontSize',AZES_FONT_SIZE)
 
 %Plots to compare t=10 min
 if PLOT==2
@@ -60,7 +63,8 @@ if PLOT==2
     colorbar
     xlabel('x [cm]')
     ylabel('y [cm]')
-    title(strcat(noVesselData.name,' % Fluence At Bottom of Tissue, t= ',string(noVesselData.time_min),'min'))
+    title(strcat(noVesselData.name,' % Fluence At Bottom of Tissue, t= ',string(noVesselData.time_min),'min'), 'FontSize',TITLE_FONT_SIZE)
+    set(gca,'FontSize',AZES_FONT_SIZE)
     colormap(makec2f)
     axis equal image
 
@@ -69,11 +73,12 @@ if PLOT==2
     plot(noVesselData.x,Temp2)
     xlabel('x [cm]')
     ylabel('Sum of % Fluence along y')
-    title(strcat(noVesselData.name,' % Fluence, t= ',string(noVesselData.time_min),'min'))
+    title(strcat(noVesselData.name,' % Fluence, t= ',string(noVesselData.time_min),'min'), 'FontSize',TITLE_FONT_SIZE)
+    set(gca,'FontSize',AZES_FONT_SIZE)
 end
 
 if PLOT==3
-    %Incomplete
+    %Incomplete to develop if needed 
     figure;clf
     subplot(1,2,1)
     BV_2D = squeeze(expData.FluenceArray(:,:,expData.Nz));
@@ -83,7 +88,7 @@ if PLOT==3
     colorbar
     xlabel('x [cm]')
     ylabel('y [cm]')
-    title('XXXXX, t=10min')
+    title('INCOMPLETE CODE')
     colormap(makec2f)
     axis equal image
 
@@ -93,5 +98,10 @@ if PLOT==3
     plot(noVesselData.x,Temp2)
     xlabel('x [cm]')
     ylabel('Sum of Fluence in y-dir')
-    title('XXXXX, t=10min') 
+    title('INCOMPLETE CODE') 
+end
+
+if SAVEPICSON
+    name = sprintf('%s_2Fluence.jpg',expData.name);
+    savepic(1,[10 5],name)
 end
