@@ -151,14 +151,14 @@ if PLOT==5 %Spectral analyzer
         end 
     end
     subplot(1,2,1)
-    SPEC_ANALYZER_Array = FULL_SPEC_ANALYZER_Array.*bitMap;
+    SPEC_ANALYZER_Array_Percent = (FULL_SPEC_ANALYZER_Array.*bitMap)/sum(sum(FULL_SPEC_ANALYZER_Array))*100;
     axis equal image
-    imagesc(SPEC_ANALYZER_Array)
+    imagesc(SPEC_ANALYZER_Array_Percent)
     xlabel('x [cm]')
     ylabel('y [cm]')
     title(strcat(expData.name,' % Fluence Seen by Spectral Analyzers, t= ',string(expData.time_min),'min'),'FontSize',TITLE_FONT_SIZE)
     subplot(1,2,2)
-    SPEC_ANALYZER_Linear = sum(SPEC_ANALYZER_Array,1);
+    SPEC_ANALYZER_Linear = sum((FULL_SPEC_ANALYZER_Array.*bitMap),1)/sum(sum(FULL_SPEC_ANALYZER_Array))*100;
     plot(expData.x(70:1209),SPEC_ANALYZER_Linear)
     title(strcat(expData.name,' % Fluence Seen By Spectral Analyzers, t= ',string(expData.time_min),'min'), 'FontSize',TITLE_FONT_SIZE)
     xlabel('x [cm]')
