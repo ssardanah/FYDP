@@ -10,7 +10,7 @@ noVesselData = getExperimentData('ControlSkinvessel'); %second plot
 
 
 
-PLOT = 4; % Plot = 1 Plot first experiment
+PLOT = 5; % Plot = 1 Plot first experiment
           % Plot = 2 Plot first and second experiment
           % Plot = 3 Plot First experiment subtracted by second experiment
           % Plot = 4 CMOS display fluence read by CMOS sensor
@@ -125,7 +125,45 @@ if PLOT==4 %CMOS
     title(strcat(expData.name,' % Fluence Seen By CMOS, t= ',string(expData.time_min),'min'), 'FontSize',TITLE_FONT_SIZE)
     xlabel('x [cm]')
     ylabel('% Fluence')
-    
+end
+
+if PLOT==5 %Spectral analyzer
+    %figure;
+    FULL_SPEC_ANALYZER_Array = BV_2D(85:114, 70:1209)+1;
+    [y, x] = size(FULL_SPEC_ANALYZER_Array);
+    bitMap = zeros(size(FULL_SPEC_ANALYZER_Array));
+    %6 circular sensors
+    %Centers at x=2.375,7.125,11.875,16.625,21.375,26.125
+    for sensorNum=1:6
+        xc      = (sensorNum-1)*190+95;            % [cm], center of blood vessel
+        yc      = y/2;     	% [cm], center of blood vessel
+        SensorRadius  = 15;      	% blood vessel radius [bins]
+        count =0;
+        for ix=1:x
+            for iy=1:y
+                xd = ix - xc;	% vessel, x distance from vessel center
+                yd = iy - yc;  	% vessel, z distance from vessel center                
+                r  = sqrt(xd^2 + yd^2);	% r from vessel center
+                if (r<=SensorRadius)     	% if r is within vessel
+                    bitMap(iy,ix) = 1;
+                end
+            end
+        end 
+    end
+    subplot(1,2,1)
+    SPEC_ANALYZER_Array = FULL_SPEC_ANALYZER_Array.*bitMap;
+    axis equal image
+    imagesc(SPEC_ANALYZER_Array)
+    xlabel('x [cm]')
+    ylabel('y [cm]')
+    title(strcat(expData.name,' % Fluence Seen by Spectral Analyzers, t= ',string(expData.time_min),'min'),'FontSize',TITLE_FONT_SIZE)
+    subplot(1,2,2)
+    SPEC_ANALYZER_Linear = sum(SPEC_ANALYZER_Array,1);
+    plot(expData.x(70:1209),SPEC_ANALYZER_Linear)
+    title(strcat(expData.name,' % Fluence Seen By Spectral Analyzers, t= ',string(expData.time_min),'min'), 'FontSize',TITLE_FONT_SIZE)
+    xlabel('x [cm]')
+    ylabel('% Fluence')
+
 end
 
 if SAVEPICSON
