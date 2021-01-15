@@ -16,7 +16,7 @@ load spectralLIB.mat
 %   nmLIB         701x1              5608  double              
 MU(:,1) = interp1(nmLIB,muaoxy,nm);
 MU(:,2) = interp1(nmLIB,muadeoxy,nm);
-MU(:,3) = interp1(nmLIB,muawater,nm);
+MU(:,3) = interp1(nmLIB,muawater,nm); %water
 MU(:,4) = interp1(nmLIB,muamel,nm);
 LOADED = 1;
 
@@ -36,13 +36,13 @@ tissue(j).g     = 1.0;  % but don't scatter.
 
 j=3;
 tissue(j).name  = 'blood';
-B       = 1.00;
-S       = 0.75;
-W       = 0.95;
-M       = 0;
-musp500 = 10;
-fray    = 0.0;
-bmie    = 1.0;
+B       = 1.00;  % blood volume fraction
+S       = 0.75; %oxygen saturation of hemoglobin
+W       = 0.95; %water volume fraction
+M       = 0; %Volume fraction of melanosomes 
+musp500 = 10;  %reduced scattering coeff. at 500 nm [cm-1]
+fray    = 0.0; %fraction of Rayleigh scattering at 500 nm
+bmie    = 1.0; % scatter power for mie scattering
 gg      = 0.90;
 musp = musp500*(fray*(nm/500).^-4 + (1-fray)*(nm/500).^-bmie);
 X = [B*S B*(1-S) W M]';
@@ -50,90 +50,10 @@ tissue(j).mua = MU*X;
 tissue(j).mus = musp/(1-gg);
 tissue(j).g   = gg;
 
-j = 4;
-tissue(j).name = 'dermis';
-B = 0.002; 
-S = 0.67;
-W = 0.65;
-M = 0;
-musp500 = 42.4;
-fray    = 0.62;
-bmie    = 1.0;
-gg      = 0.90;
-musp = musp500*(fray*(nm/500).^-4 + (1-fray)*(nm/500).^-bmie);
-X = [B*S B*(1-S) W M]';
-tissue(j).mua = MU*X;
-tissue(j).mus = musp/(1-gg);
-tissue(j).g   = gg;
-
-j=5;
-tissue(j).name  = 'epidermis';
-B = 0;
-S = 0.75;
-W = 0.75;
-M = 0.03;
-musp500 = 40;
-fray    = 0.0;
-bmie    = 1.0;
-gg      = 0.90;
-musp = musp500*(fray*(nm/500).^-4 + (1-fray)*(nm/500).^-bmie);
-X = [B*S B*(1-S) W M]';
-tissue(j).mua = MU*X;
-tissue(j).mus = musp/(1-gg);
-tissue(j).g   = gg;
-
-j=6;
-tissue(j).name  = 'skull';
-B = 0.0005;
-S = 0.75;
-W = 0.35;
-M = 0;
-musp500 = 30;
-fray    = 0.0;
-bmie    = 1.0;
-gg      = 0.90;
-musp = musp500*(fray*(nm/500).^-4 + (1-fray)*(nm/500).^-bmie);
-X = [B*S B*(1-S) W M]';
-tissue(j).mua = MU*X;
-tissue(j).mus = musp/(1-gg);
-tissue(j).g   = gg;
-
-j=7;
-tissue(j).name = 'gray matter';
-B = 0.01;
-S = 0.75;
-W = 0.75;
-M = 0;
-musp500 = 20;
-fray    = 0.2;
-bmie    = 1.0;
-gg      = 0.90;
-musp = musp500*(fray*(nm/500).^-4 + (1-fray)*(nm/500).^-bmie);
-X = [B*S B*(1-S) W M]';
-tissue(j).mua = MU*X;
-tissue(j).mus = musp/(1-gg);
-tissue(j).g   = gg;
-
-j=8;
-tissue(j).name  = 'white matter';
-B = 0.01;
-S = 0.75;
-W = 0.75;
-M = 0;
-musp500 = 20;
-fray    = 0.2;
-bmie    = 1.0;
-gg      = 0.90;
-musp = musp500*(fray*(nm/500).^-4 + (1-fray)*(nm/500).^-bmie);
-X = [B*S B*(1-S) W M]';
-tissue(j).mua = MU*X;
-tissue(j).mus = musp/(1-gg);
-tissue(j).g   = gg;
-
-j=9;
-tissue(j).name  = 'standard tissue';
-tissue(j).mua   = 1;
-tissue(j).mus   = 100;
+j=4;
+tissue(j).name  = 'adipose tissue';
+tissue(j).mua   = 0.13;
+tissue(j).mus   = 122.9;
 tissue(j).g     = 0.90;
 
 disp(sprintf('---- tissueList ------ \tmua   \tmus  \tg  \tmusp'))

@@ -37,9 +37,12 @@ home
 SAVEON      = 1;        % 1 = save myname_T.bin, myname_H.mci 
                         % 0 = don't save. Just check the program.
 
-myname      = 'skinvessel';% name for files: myname_T.bin, myname_H.mci  
+VESSEL      = 1;        % 1 = create a blood vessel
+                        % 0 = Do not create blood vessel
+                        
+myname      = 'skinvesselSteph3';% name for files: myname_T.bin, myname_H.mci  
 time_min    = 10;      	% time duration of the simulation [min] <----- run time -----
-nm          = 532;   	% desired wavelength of simulation
+nm          = 940;   	% desired wavelength of simulation
 Nbins       = 200;    	% # of bins in each dimension of cube 
 binsize     = 0.0005; 	% size of each bin, eg. [cm] or [mm]
 
@@ -51,7 +54,8 @@ launchflag  = 0;        % 0 = let mcxyz.c calculate launch trajectory
 boundaryflag = 2;       % 0 = no boundaries, 1 = escape at boundaries
                         % 2 = escape at surface only. No x, y, bottom z
                         % boundaries
-
+                        
+% Light source information 
 % Sets position of source
 xs          = 0;      	% x of source
 ys          = 0;        % y of source
@@ -113,22 +117,22 @@ if isinf(zfocus), zfocus = 1e12; end
 
 T = double(zeros(Ny,Nx,Nz)); 
 
-T = T + 4;      % fill background with skin (dermis)
+T = T + 4;      % fill background with fat (Adipose)
 
 zsurf = 0.0100;  % position of air/skin surface
 
 for iz=1:Nz % for every depth z(iz)
 
     % air
-    if iz<=round(zsurf/dz)
-        T(:,:,iz) = 2; 
-    end
+%     if iz<=round(zsurf/dz)
+%         T(:,:,iz) = 2; 
+%     end
 
     % epidermis (60 um thick)
-    if iz>round(zsurf/dz) & iz<=round((zsurf+0.0060)/dz)
-        T(:,:,iz) = 5; 
-    end
-
+%     if iz>round(zsurf/dz) & iz<=round((zsurf+0.0060)/dz)
+%         T(:,:,iz) = 4; 
+%     end
+%  
     % blood vessel @ xc, zc, radius, oriented along y axis
     xc      = 0;            % [cm], center of blood vessel
     zc      = Nz/2*dz;     	% [cm], center of blood vessel
@@ -142,7 +146,7 @@ for iz=1:Nz % for every depth z(iz)
             end
 
     end %ix
-    
+
 end % iz
 
 
