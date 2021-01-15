@@ -30,7 +30,7 @@ else
 end
 
 %%%% USER CHOICES <---------- you must specify -----
-myname = 'skinvessel'; nm = 532;
+myname = 'test'; nm = 532;
 %%%%
 
 

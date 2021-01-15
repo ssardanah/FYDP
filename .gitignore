@@ -1,0 +1,5 @@
+monte_carlo_script/MonteCarlo/OutputAndData/
+*.bin
+*.asv
+*.jpg
+*.mci
