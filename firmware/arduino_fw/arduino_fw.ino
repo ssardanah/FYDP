@@ -45,6 +45,7 @@ void setup()
 
   pinMode(FrmRdyInt, INPUT);
   pinMode(CS, OUTPUT);
+  pinMode(13, OUTPUT); //onboard LED for debugging 
 
   //To do: init sensor 
 
@@ -61,10 +62,7 @@ void loop()
 
 // To Do: 
 // Write function
-// Read function
 // Test function (zebra)
-// Sleep function
-// Get threshold
 
 /** Set thresholds
  * This function set the low and high thresholds
@@ -73,19 +71,69 @@ void loop()
  * @return 0 if the operation succeed, 1 if not.
  */
 int set_thresholds(unsigned int low,unsigned int high){
-    digitalWrite(CS, LOW); //_cs = 0;
-    int thresholds = ((high << 4) && 0xF0) || (low && 0x0F);
-    SPI.transfer(MLX75306_WT); //_spi.write(MLX75306_WT);
-    SPI.transfer(thresholds); //_spi.write(thresholds);
-    SPI.transfer(0x0); //_spi.write(0x0);
-    digitalWrite(CS, HIGH); //_cs = 1;
-    
-    if (thresholds == get_thresholds()) {
-      return 0;
-    } else {
-      return 1;
-    }
-
-return 
+  digitalWrite(CS, LOW); //_cs = 0;
+  unsigned int thresholds = ((high << 4) && 0xF0) || (low && 0x0F);
+  SPI.transfer(MLX75306_WT); //_spi.write(MLX75306_WT);
+  SPI.transfer(thresholds); //_spi.write(thresholds);
+  SPI.transfer(0x0); //_spi.write(0x0);
+  digitalWrite(CS, HIGH); //_cs = 1;
+  
+  if (thresholds == get_thresholds()) {
+    return 0;
+  } else {
+    return 1;
+  } 
 }
+
+unsigned int get_thresholds(){
+  digitalWrite(CS, LOW);
+  SPI.transfer(MLX75306_WT); //_spi.write(MLX75306_WT);
+  unsigned int thresholds = SPI.transfer(0x00);
+  SPI.transfer(0x00);
+  digitalWrite(CS, HIGH); //_cs = 1;
+
+  return thresholds;
+}
+void start(){
+  digitalWrite(CS, LOW);
+  SPI.transfer(MLX75306_WU);
+  SPI.transfer(0x00);
+  SPI.transfer(0x00);
+  digitalWrite(CS, HIGH);
+}
+void sleep(){
+  digitalWrite(CS, LOW);
+  SPI.transfer(MLX75306_SM);
+  SPI.transfer(0x00);
+  SPI.transfer(0x00);
+  digitalWrite(CS, HIGH);
+}
+void set_acquire_8b(unsigned char *data){
+  digitalWrite(CS, LOW);
+  SPI.transfer(MLX75306_SI);
+  SPI.transfer(TIME_INT_MSB);
+  SPI.transfer(TIME_INT_LSB);
+  digitalWrite(CS, HIGH);
+
+  digitalWrite(13, LOW);
+  //DigitalOut led(LED1);
+  while(!digitalRead(FrmRdyInt)) {
+     digitalWrite(13, HIGH);
+  }
+  digitalWrite(13, LOW);
+  
+  digitalWrite(CS, LOW);
+  SPI.transfer(MLX75306_RO8);
+  SPI.transfer(0x02);
+  SPI.transfer(0x8F);
+  
+  int tx_length = 143 + 1 + 17 -3; //shouldn't this be 2????
+  char tx_buffer[tx_length] = {0x00}; //creating buffer of 0s of tx_length
+  //_spi.write(tx_buffer, tx_length, rx_buffer, rx_length);
+  SPI.transfer(tx_buffer, tx_length);
+
+  // 10 junk data at the begining //???????????????????????????????????????????????? this might be wrong ????????????????????????????????????????
+  // and 4 at the end
+  data = (uint8_t*)strncpy((char*)data, tx_buffer+10, 142); 
+  digitalWrite(CS, HIGH);
 }
