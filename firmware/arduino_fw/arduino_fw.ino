@@ -30,6 +30,10 @@
 #define START_PIXEL   0x02
 #define END_PIXEL     0x8F
 
+
+//From datasheet N = (ending pixel - starting pixel) + 1 + 17
+#define TX_LEN        (143 - 2 + 1 + 17)
+
 #define TIME_INT_MSB  0b01001110
 #define TIME_INT_LSB  0b01001000
 
@@ -61,12 +65,16 @@ void setup()
 
 void loop() 
 {
-  unsigned char *myData;
+  uint8_t *myData = malloc(TX_LEN - 12 - 2); 
   set_acquire_8b(myData);
+  
+  // To do:
+  // Processing with the data
+  
+  free(myData);
 }
 // To Do: 
 // Test function (zebra)
-// Set integration time function (affects intensity calculation)
 
 /** Set thresholds
  * This function set the low and high thresholds
@@ -75,12 +83,12 @@ void loop()
  * @return 0 if the operation succeed, 1 if not.
  */
 int set_thresholds(unsigned int low,unsigned int high){
-  digitalWrite(CS, LOW); //_cs = 0;
+  digitalWrite(CS, LOW);
   unsigned int thresholds = ((high << 4) && 0xF0) || (low && 0x0F);
-  SPI.transfer(MLX75306_WT); //_spi.write(MLX75306_WT);
-  SPI.transfer(thresholds); //_spi.write(thresholds);
-  SPI.transfer(0x0); //_spi.write(0x0);
-  digitalWrite(CS, HIGH); //_cs = 1;
+  SPI.transfer(MLX75306_WT); 
+  SPI.transfer(thresholds); 
+  SPI.transfer(0x0); 
+  digitalWrite(CS, HIGH); 
   
   if (thresholds == get_thresholds()) {
     return 0;
@@ -95,7 +103,7 @@ int set_thresholds(unsigned int low,unsigned int high){
  */
 unsigned int get_thresholds(){
   digitalWrite(CS, LOW);
-  SPI.transfer(MLX75306_WT); //_spi.write(MLX75306_WT);
+  SPI.transfer(MLX75306_WT); 
   unsigned int thresholds = SPI.transfer(0x00);
   SPI.transfer(0x00);
   digitalWrite(CS, HIGH);
@@ -127,7 +135,7 @@ void sleep(){
 /**  Acquire 8 bits
  * get 8-bit sensor ADC output 
  */
-void set_acquire_8b(char *data){
+void set_acquire_8b(uint8_t *data){
   digitalWrite(CS, LOW);
   SPI.transfer(MLX75306_SI);
   SPI.transfer(TIME_INT_MSB);
@@ -145,20 +153,25 @@ void set_acquire_8b(char *data){
   SPI.transfer(MLX75306_RO8);
   SPI.transfer(START_PIXEL);
   SPI.transfer(END_PIXEL);
+  
+  //creating buffer of 0s of tx_length
+  uint8_t tx_buffer[TX_LEN] = {0x00}; 
+  // The received data is stored in the tx_buffer in-place 
+  // (the old data is replaced with the data received).
+  SPI.transfer(tx_buffer, TX_LEN);
 
-  //From datasheet N = (ending pixel - starting pixel) + 1 + 17
-  int tx_length = (143 - 2) + 1 + 17;
-  char tx_buffer[tx_length] = {0x00}; //creating buffer of 0s of tx_length
-  SPI.transfer(tx_buffer, tx_length);
-
-  // 10 junk data at the begining //???????????????????????????????????????????????? this might be wrong ????????????????????????????????????????
-  // and 4 at the end
-  data = (uint8_t*)strncpy(data, &(tx_buffer[10]), 142);
+  // 12 junk data at the begining and 2 at the end
+  for (int i = 12; i < (TX_LEN - 2); i++)
+  {
+    data[i - 12] = tx_buffer[i];    
+  } 
+  
   digitalWrite(CS, HIGH);
 }
 
 /**  Write data
- * General write function @param is 1 byte of data to be written
+ * General write function @param is 1 byte of data to be 
+ * written
  */
 void writeData (byte data)
 {
