@@ -38,16 +38,19 @@ void setup()
   
   // SPI Settings: 
   // Max speed is 20MHz , used 14MHz
-  // Clock is idle high (CPOL = 1) , Data sampled at rising edge. shifted at falling edge (CPHA = 1)
+  // Clock is idle high (CPOL = 1). Data sampled at rising edge & shifted at falling edge (CPHA = 1).
   // Therefore SPI mode = 3 
   
   SPI.beginTransaction(SPISettings(14000000, MSBFIRST, SPI_MODE3)); 
-
+  SPI.transfer
   pinMode(FrmRdyInt, INPUT);
   pinMode(CS, OUTPUT);
 
-  //To do: init sensor 
-
+  // Initialize sensor 
+  writeData(MLX75306_CR);
+  writeData(MLX75306_NOP);
+  writeData(MLX75306_NOP);
+  
   // Give sensor time to setup
   delay(100);
 
@@ -59,8 +62,17 @@ void loop()
 
 }
 
-// To Do: 
-// Write function
+// Write to sensor 1 byte at a time
+void writeData (byte data)
+{
+  digitalWrite(CS, LOW)
+  SPI.transfer(data);
+  digitalWrite(CS, HIGH)
+}
+
+// To Do:
+// Init Sensor (done)
+// Write function (done)
 // Read function
 // Test function (zebra)
 // Sleep function
