@@ -1,7 +1,7 @@
-# include <SPI.h>
+#include <SPI.h>
 
 // SPI Defines
-#define FrmRdyInt 9
+#define FrmRdyInt 9 //frameready
 #define CS        10
 #define MOSI      11
 #define MISO      12
@@ -35,7 +35,7 @@ void setup()
 {
   // Setup serial monitor & SPI protocol
   Serial.begin(9600);
-  
+  SPI.begin();
   // SPI Settings: 
   // Max speed is 20MHz , used 14MHz
   // Clock is idle high (CPOL = 1) , Data sampled at rising edge. shifted at falling edge (CPHA = 1)
@@ -64,5 +64,28 @@ void loop()
 // Read function
 // Test function (zebra)
 // Sleep function
-// Set threshold
 // Get threshold
+
+/** Set thresholds
+ * This function set the low and high thresholds
+ * @param low is the 4 lower bits for the low threshold, 
+ * high is the 4 higher bits for the high thresholds
+ * @return 0 if the operation succeed, 1 if not.
+ */
+int set_thresholds(unsigned int low,unsigned int high){
+    digitalWrite(CS, LOW); //_cs = 0;
+    int thresholds = ((high << 4) && 0xF0) || (low && 0x0F);
+    SPI.transfer(MLX75306_WT); //_spi.write(MLX75306_WT);
+    SPI.transfer(thresholds); //_spi.write(thresholds);
+    SPI.transfer(0x0); //_spi.write(0x0);
+    digitalWrite(CS, HIGH); //_cs = 1;
+    
+    if (thresholds == get_thresholds()) {
+      return 0;
+    } else {
+      return 1;
+    }
+
+return 
+}
+}
