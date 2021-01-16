@@ -70,7 +70,7 @@ void setup()
 
 void loop() 
 {
-  uint8_t *myData = malloc(TX_LEN - 12 - 2); 
+  uint8_t *myData = (uint8_t *)malloc(TX_LEN - 12 - 2); 
   set_acquire_8b(myData);
   
   // To do:
@@ -79,8 +79,6 @@ void loop()
   
   free(myData);
 }
-// To Do: 
-// Test function (zebra)
 
 /** Set thresholds
  * This function set the low and high thresholds
@@ -183,7 +181,7 @@ void set_acquire_8b(uint8_t *data){
  * To exclude the influence of charge due to integrated photocurrents, 
  * the TZ1, TZ2, TZ12 and TZ0 tests must be performed in dark.
  */
-void zebraTest(uint8_t command)
+void zebraTest(uint8_t command, uint8_t *data)
 {
   //creating buffer of 0s of tx_length
   uint8_t tx_buffer[TX_LEN] = {0x00}; 
