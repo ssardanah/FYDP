@@ -10,26 +10,28 @@
 // Sensor Defines
 #define MLX75306_SPI_FRAME_SIZE 24 
 
-#define MLX75306_NOP  B0000000
-#define MLX75306_CR   B11110000
-#define MLX75306_RT   B11011000
-#define MLX75306_WT   B11001100
-#define MLX75306_SI   B10111000
-#define MLX75306_SIL  B10110100
-#define MLX75306_RO1  B10011100
-#define MLX75306_RO2  B10010110
-#define MLX75306_RO4  B10010011
-#define MLX75306_RO8  B10011001
-#define MLX75306_TZ1  B11101000
-#define MLX75306_TZ2  B11100100
-#define MLX75306_TZ12 B11100010
-#define MLX75306_TZ0  B11100001
-#define MLX75306_SM   B11000110
-#define MLX75306_WU   B11000011
+#define MLX75306_NOP  0b0000000
+#define MLX75306_CR   0b11110000
+#define MLX75306_RT   0b11011000
+#define MLX75306_WT   0b11001100
+#define MLX75306_SI   0b10111000
+#define MLX75306_SIL  0b10110100
+#define MLX75306_RO1  0b10011100
+#define MLX75306_RO2  0b10010110
+#define MLX75306_RO4  0b10010011
+#define MLX75306_RO8  0b10011001
+#define MLX75306_TZ1  0b11101000
+#define MLX75306_TZ2  0b11100100
+#define MLX75306_TZ12 0b11100010
+#define MLX75306_TZ0  0b11100001
+#define MLX75306_SM   0b11000110
+#define MLX75306_WU   0b11000011
 
-#define TIME_INT_MSB  B01001110
-#define TIME_INT_LSB  B0010010
+#define START_PIXEL   0x02
+#define END_PIXEL     0x8F
 
+#define TIME_INT_MSB  0b01001110
+#define TIME_INT_LSB  0b01001000
 
 void setup() 
 {
@@ -59,8 +61,8 @@ void setup()
 
 void loop() 
 {
-  
-
+  unsigned char *myData;
+  set_acquire_8b(myData);
 }
 // To Do: 
 // Test function (zebra)
@@ -125,7 +127,7 @@ void sleep(){
 /**  Acquire 8 bits
  * get 8-bit sensor ADC output 
  */
-void set_acquire_8b(unsigned char *data){
+void set_acquire_8b(char *data){
   digitalWrite(CS, LOW);
   SPI.transfer(MLX75306_SI);
   SPI.transfer(TIME_INT_MSB);
@@ -141,17 +143,17 @@ void set_acquire_8b(unsigned char *data){
   
   digitalWrite(CS, LOW);
   SPI.transfer(MLX75306_RO8);
-  SPI.transfer(0x02);
-  SPI.transfer(0x8F);
-  
-  int tx_length = 143 + 1 + 17 -3; //shouldn't this be 2????
+  SPI.transfer(START_PIXEL);
+  SPI.transfer(END_PIXEL);
+
+  //From datasheet N = (ending pixel - starting pixel) + 1 + 17
+  int tx_length = (143 - 2) + 1 + 17;
   char tx_buffer[tx_length] = {0x00}; //creating buffer of 0s of tx_length
-  //_spi.write(tx_buffer, tx_length, rx_buffer, rx_length);
   SPI.transfer(tx_buffer, tx_length);
 
   // 10 junk data at the begining //???????????????????????????????????????????????? this might be wrong ????????????????????????????????????????
   // and 4 at the end
-  data = (uint8_t*)strncpy((char*)data, tx_buffer+10, 142); 
+  data = (uint8_t*)strncpy(data, &(tx_buffer[10]), 142);
   digitalWrite(CS, HIGH);
 }
 
