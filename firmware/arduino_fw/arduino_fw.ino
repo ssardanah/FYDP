@@ -70,7 +70,7 @@ void setup()
 
 void loop() 
 {
-  uint8_t *myData = (uint8_t *)malloc(TX_LEN - 12 - 2); 
+  uint8_t *myData = malloc(TX_LEN - 12 - 2); 
   set_acquire_8b(myData);
   
   // To do:
@@ -172,6 +172,7 @@ void set_acquire_8b(uint8_t *data){
   
   digitalWrite(CS, HIGH);
 }
+
 /** Zebra Test channel
  * These command can be used as an integrity check: 
  * Zebra Test 1: All odd pixels
