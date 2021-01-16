@@ -1,5 +1,9 @@
 # include <SPI.h>
 
+//System Defines
+#define SYS_VOLT  5.0
+#define SYS_RES   (2^8)
+
 // SPI Defines
 #define FrmRdyInt 9
 #define CS        10
@@ -34,8 +38,30 @@
 //From datasheet N = (ending pixel - starting pixel) + 1 + 17
 #define TX_LEN        (143 - 2 + 1 + 17)
 
+// Integration time 16 bits
 #define TIME_INT_MSB  0b01001110
 #define TIME_INT_LSB  0b01001000
+
+// Threshold values (defailt HI = 0x0B Lo = 0x03)
+#define THRESH_HIGH   0x0B
+#define THRESH_LOW    0x03
+
+// Hi-Lo ranges for each zebra test (in LSB)
+// Conversion to volts = (System Voltage * ADC_Reading)/Resolution
+//                     = (5.0 * ADC_Reading)/2^8
+#define TZ1LO_MIN         0     // 0 V     
+#define TZ1LO_MAX         40    // 0.78 V
+#define TZ1HI_MIN         140   // 2.73 V
+#define TZ1HI_MAX         240   // 4.69 V
+
+#define TZ2LO_MIN         0  
+#define TZ2LO_MAX         40 
+#define TZ2HI_MIN         140
+#define TZ2HI_MAX         240
+
+#define TZ12HI_MIN        140
+#define TZ12HI_MAX        240
+
 
 void setup() 
 {
@@ -70,14 +96,25 @@ void setup()
 
 void loop() 
 {
-  uint8_t *myData = malloc(TX_LEN - 12 - 2); 
-  set_acquire_8b(myData);
-  
-  // To do:
-  // -Processing with the data
-  // -Print on serial monitor
-  
-  free(myData);
+  // Allocate memory for data
+  uint8_t *sensorOutput = malloc(TX_LEN - 12 - 2); // 8-bit ADC output, length excludes junk data
+  set_acquire_8b(sensorOutput);
+
+  for (int i = 0; i <= (TX_LEN - 12 - 2); i++)
+  {
+    // Convert to volts (check notation) 
+    *sensorOutput = SYS_VOLT * (*(sensorOutput++)) / SYS_RES; 
+
+    //Format and display as a double
+    Serial.print("Pixel Number: ");
+    Serial.print(i);
+    Serial.print("\t");
+    Serial.print("Intensity: ");
+    Serial.print(sensorOutput[i]);
+    Serial.print("\n");
+  }
+  // Free allocated memory for data
+  free(sensorOutput);
 }
 
 /** Set thresholds
@@ -203,7 +240,8 @@ void zebraTest(uint8_t command, uint8_t *data)
     data[i - 12] = tx_buffer[i];    
   } 
 
-  // Can print in loop to see output or can add if statements to check bytes
+  // To do: If staments to check if pixel conditions described in each zebra test in the datasheets hold
+  //        Use ranges for high and low in defines
   
   digitalWrite(CS, HIGH);
 }
