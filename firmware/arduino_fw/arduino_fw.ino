@@ -54,9 +54,14 @@ void setup()
   pinMode(13, OUTPUT); //onboard LED for debugging
 
   // Initialize sensor and sleep
-  writeData(MLX75306_CR);
-  writeData(MLX75306_NOP);
-  writeData(MLX75306_NOP);
+  digitalWrite(CS, LOW);
+  SPI.transfer(MLX75306_CR);
+  SPI.transfer(MLX75306_NOP);
+  SPI.transfer(MLX75306_NOP);
+  digitalWrite(CS, HIGH);
+
+  // Start detection
+  start(); 
   
   // Give sensor time to setup
   delay(100);
@@ -69,7 +74,8 @@ void loop()
   set_acquire_8b(myData);
   
   // To do:
-  // Processing with the data
+  // -Processing with the data
+  // -Print on serial monitor
   
   free(myData);
 }
@@ -87,7 +93,7 @@ int set_thresholds(unsigned int low,unsigned int high){
   unsigned int thresholds = ((high << 4) && 0xF0) || (low && 0x0F);
   SPI.transfer(MLX75306_WT); 
   SPI.transfer(thresholds); 
-  SPI.transfer(0x0); 
+  SPI.transfer(MLX75306_NOP); 
   digitalWrite(CS, HIGH); 
   
   if (thresholds == get_thresholds()) {
@@ -105,7 +111,7 @@ unsigned int get_thresholds(){
   digitalWrite(CS, LOW);
   SPI.transfer(MLX75306_WT); 
   unsigned int thresholds = SPI.transfer(0x00);
-  SPI.transfer(0x00);
+  SPI.transfer(MLX75306_NOP);
   digitalWrite(CS, HIGH);
 
   return thresholds;
@@ -116,8 +122,8 @@ unsigned int get_thresholds(){
 void start(){
   digitalWrite(CS, LOW);
   SPI.transfer(MLX75306_WU);
-  SPI.transfer(0x00);
-  SPI.transfer(0x00);
+  SPI.transfer(MLX75306_NOP);
+  SPI.transfer(MLX75306_NOP);
   digitalWrite(CS, HIGH);
 }
 
@@ -127,8 +133,8 @@ void start(){
 void sleep(){
   digitalWrite(CS, LOW);
   SPI.transfer(MLX75306_SM);
-  SPI.transfer(0x00);
-  SPI.transfer(0x00);
+  SPI.transfer(MLX75306_NOP);
+  SPI.transfer(MLX75306_NOP);
   digitalWrite(CS, HIGH);
 }
 
@@ -168,14 +174,37 @@ void set_acquire_8b(uint8_t *data){
   
   digitalWrite(CS, HIGH);
 }
-
-/**  Write data
- * General write function @param is 1 byte of data to be 
- * written
+/** Zebra Test channel
+ * These command can be used as an integrity check: 
+ * Zebra Test 1: All odd pixels
+ * Zebra Test 2: All even pixels
+ * Zebra Test 12: All even and odd pixels return high
+ * Zebra Test 0: All even and odd pixels return low
+ * To exclude the influence of charge due to integrated photocurrents, 
+ * the TZ1, TZ2, TZ12 and TZ0 tests must be performed in dark.
  */
-void writeData (byte data)
+void zebraTest(uint8_t command)
 {
+  //creating buffer of 0s of tx_length
+  uint8_t tx_buffer[TX_LEN] = {0x00}; 
+  tx_buffer[0] = command;
+  tx_buffer[1] = MLX75306_NOP;
+  tx_buffer[2] = MLX75306_NOP;
+
+  //Begin SPI
   digitalWrite(CS, LOW);
-  SPI.transfer(data);
+  
+  // The received data is stored in the tx_buffer in-place 
+  // (the old data is replaced with the data received).
+  SPI.transfer(tx_buffer, TX_LEN);
+
+  // 12 junk data at the begining and 2 at the end
+  for (int i = 12; i < (TX_LEN - 2); i++)
+  {
+    data[i - 12] = tx_buffer[i];    
+  } 
+
+  // Can print in loop to see output or can add if statements to check bytes
+  
   digitalWrite(CS, HIGH);
 }
