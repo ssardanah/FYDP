@@ -232,7 +232,7 @@ bool zebraTest(uint8_t command, uint8_t *data)
   // The received data is stored in the tx_buffer in-place 
   // (the old data is replaced with the data received).
   SPI.transfer(tx_buffer, TX_LEN);
-
+  digitalWrite(CS, HIGH);
   // 12 junk data at the begining and 2 at the end
   for (int i = 12; i < (TX_LEN - 2); i++)
   {
@@ -242,18 +242,17 @@ bool zebraTest(uint8_t command, uint8_t *data)
   // To do: If staments to check if pixel conditions described in each zebra test in the datasheets hold
   //        Use ranges for high and low in defines
  
-  bool test_status = true;
   for (int i=0; i < sizeof(data); i++)
     { 
     if(command==MLX75306_TZ1){
       //1, 3, 5, .., 143 will return a
       //high value TZ1High, all even pixels 2, 4, .., 144 will return a low value TZ1Low
        if(((i % 2) == 0) && (data[i]<TZ1HI_MIN || data[i]>TZ1HI_MAX)){
-        test_status = false;
+        return false;
        }
        //if odd values are higher than the low threshold test failed
-       else if ((i % 2) && (data[i]> TZ1LO_MAX || TZ1LO_MIN)){
-        test_status = false;
+       else if ((i % 2) && (data[i]> TZ1LO_MAX || data[i]<TZ1LO_MIN)){
+        return false;
        }
        else{
         //Safe, do nothing
@@ -261,11 +260,11 @@ bool zebraTest(uint8_t command, uint8_t *data)
     }
     else if(command==MLX75306_TZ2){
       //all odd pixels 1, 3, 5, .., 143 will return a low value TZ2Low, all even pixels 2, 4, .., 144 will return a high value TZ2High
-       if((i % 2) && (data[i]> TZ2LO_MAX || TZ2LO_MIN)){
-        test_status = false;
+       if((i % 2) && (data[i]> TZ2LO_MAX || data[i]< TZ2LO_MIN)){
+        return false;
        }
        else if (((i % 2) == 0) && (data[i]<TZ2HI_MIN || data[i]>TZ2HI_MAX)){
-        test_status = false;
+        return false;
        }
        else{
         //Safe, do nothing
@@ -273,15 +272,15 @@ bool zebraTest(uint8_t command, uint8_t *data)
     }
     else if(command==MLX75306_TZ12){
       if((data[i]<TZ12HI_MIN || data[i]>TZ12HI_MAX)){
-        test_status = false;
+        return false;
        }
        else{
         //Safe, do nothing
        }
     }
     else if(command==MLX75306_TZ0){
-       if(data[i]> TZ2LO_MAX || TZ2LO_MIN){
-        test_status = false;
+       if(data[i]> TZ2LO_MAX || data[i]<TZ2LO_MIN){
+        return false;
        }
        else{
         //Safe, do nothing
@@ -289,9 +288,8 @@ bool zebraTest(uint8_t command, uint8_t *data)
     }
     else{
       Serial.println("Command not recognized");
-      test_status = false;
+      return false;
     }
    }
-   return test_status;
-  digitalWrite(CS, HIGH);
+  return true;
 }
