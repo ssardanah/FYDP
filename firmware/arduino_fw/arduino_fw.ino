@@ -1,7 +1,7 @@
 # include <SPI.h>
 
 //System Defines
-#define SYS_VOLT  5.0 //?????????????????????   3.3V   ??????????
+#define SYS_VOLT  5.0 
 #define SYS_RES   (2^8)
 
 // SPI Defines
@@ -42,7 +42,7 @@
 #define TIME_INT_MSB  0b01001110
 #define TIME_INT_LSB  0b01001000
 
-// Threshold values (defailt HI = 0x0B Lo = 0x03)
+// Threshold values (default HI = 0x0B Lo = 0x03)
 #define THRESH_HIGH   0x0B
 #define THRESH_LOW    0x03
 
@@ -243,18 +243,16 @@ bool zebraTest(uint8_t command, uint8_t *data)
   //        Use ranges for high and low in defines
  
   bool test_status = true;
-  int ZHigh_threshold = 0; //?????????????????????????????????????????????????????????????????????????????????????????????????/
-  int ZLow_threshold = 0;
   for (int i=0; i < sizeof(data); i++)
     { 
     if(command==MLX75306_TZ1){
       //1, 3, 5, .., 143 will return a
       //high value TZ1High, all even pixels 2, 4, .., 144 will return a low value TZ1Low
-       if(((i % 2) == 0) && data[i]<ZHigh_threshold){
+       if(((i % 2) == 0) && data[i]<THRESH_HIGH){
         test_status = false;
        }
        //if odd values are higher than the low threshold test failed
-       if else((i % 2) && data[i]>ZLow_threshold){
+       else if ((i % 2) && data[i]>THRESH_LOW){
         test_status = false;
        }
        else{
@@ -263,11 +261,10 @@ bool zebraTest(uint8_t command, uint8_t *data)
     }
     else if(command==MLX75306_TZ2){
       //all odd pixels 1, 3, 5, .., 143 will return a low value TZ2Low, all even pixels 2, 4, .., 144 will return a high value TZ2High
-       if((i % 2) && data[i]<ZHigh_threshold){
+       if((i % 2) && data[i]<THRESH_HIGH){
         test_status = false;
        }
-       //if odd values are higher than the low threshold test failed
-       if else(((i % 2) == 0) && data[i]>ZLow_threshold){
+       else if (((i % 2) == 0) && data[i]>THRESH_LOW){
         test_status = false;
        }
        else{
@@ -275,7 +272,7 @@ bool zebraTest(uint8_t command, uint8_t *data)
        }
     }
     else if(command==MLX75306_TZ12){
-      if(data[i]<ZHigh_threshold){
+      if(data[i]<THRESH_HIGH){
         test_status = false;
        }
        else{
@@ -283,7 +280,7 @@ bool zebraTest(uint8_t command, uint8_t *data)
        }
     }
     else if(command==MLX75306_TZ0){
-       if(data[i]>ZLow_threshold){
+       if(data[i]>THRESH_LOW){
         test_status = false;
        }
        else{
@@ -291,7 +288,7 @@ bool zebraTest(uint8_t command, uint8_t *data)
        }
     }
     else{
-      println("Command not recognized");
+      Serial.println("Command not recognized");
       test_status = false;
     }
    }
