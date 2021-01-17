@@ -248,11 +248,11 @@ bool zebraTest(uint8_t command, uint8_t *data)
     if(command==MLX75306_TZ1){
       //1, 3, 5, .., 143 will return a
       //high value TZ1High, all even pixels 2, 4, .., 144 will return a low value TZ1Low
-       if(((i % 2) == 0) && data[i]<THRESH_HIGH){
+       if(((i % 2) == 0) && (data[i]<TZ1HI_MIN || data[i]>TZ1HI_MAX)){
         test_status = false;
        }
        //if odd values are higher than the low threshold test failed
-       else if ((i % 2) && data[i]>THRESH_LOW){
+       else if ((i % 2) && (data[i]> TZ1LO_MAX || TZ1LO_MIN)){
         test_status = false;
        }
        else{
@@ -261,10 +261,10 @@ bool zebraTest(uint8_t command, uint8_t *data)
     }
     else if(command==MLX75306_TZ2){
       //all odd pixels 1, 3, 5, .., 143 will return a low value TZ2Low, all even pixels 2, 4, .., 144 will return a high value TZ2High
-       if((i % 2) && data[i]<THRESH_HIGH){
+       if((i % 2) && (data[i]> TZ2LO_MAX || TZ2LO_MIN)){
         test_status = false;
        }
-       else if (((i % 2) == 0) && data[i]>THRESH_LOW){
+       else if (((i % 2) == 0) && (data[i]<TZ2HI_MIN || data[i]>TZ2HI_MAX)){
         test_status = false;
        }
        else{
@@ -272,7 +272,7 @@ bool zebraTest(uint8_t command, uint8_t *data)
        }
     }
     else if(command==MLX75306_TZ12){
-      if(data[i]<THRESH_HIGH){
+      if((data[i]<TZ12HI_MIN || data[i]>TZ12HI_MAX)){
         test_status = false;
        }
        else{
@@ -280,7 +280,7 @@ bool zebraTest(uint8_t command, uint8_t *data)
        }
     }
     else if(command==MLX75306_TZ0){
-       if(data[i]>THRESH_LOW){
+       if(data[i]> TZ2LO_MAX || TZ2LO_MIN){
         test_status = false;
        }
        else{
