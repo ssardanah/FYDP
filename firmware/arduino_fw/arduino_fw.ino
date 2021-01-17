@@ -1,7 +1,7 @@
 # include <SPI.h>
 
 //System Defines
-#define SYS_VOLT  5.0
+#define SYS_VOLT  5.0 //?????????????????????   3.3V   ??????????
 #define SYS_RES   (2^8)
 
 // SPI Defines
@@ -110,8 +110,7 @@ void loop()
     Serial.print(i);
     Serial.print("\t");
     Serial.print("Intensity: ");
-    Serial.print(sensorOutput[i]);
-    Serial.print("\n");
+    Serial.println(sensorOutput[i]);
   }
   // Free allocated memory for data
   free(sensorOutput);
@@ -219,7 +218,7 @@ void set_acquire_8b(uint8_t *data){
  * To exclude the influence of charge due to integrated photocurrents, 
  * the TZ1, TZ2, TZ12 and TZ0 tests must be performed in dark.
  */
-void zebraTest(uint8_t command, uint8_t *data)
+bool zebraTest(uint8_t command, uint8_t *data)
 {
   //creating buffer of 0s of tx_length
   uint8_t tx_buffer[TX_LEN] = {0x00}; 
@@ -242,6 +241,60 @@ void zebraTest(uint8_t command, uint8_t *data)
 
   // To do: If staments to check if pixel conditions described in each zebra test in the datasheets hold
   //        Use ranges for high and low in defines
-  
+ 
+  bool test_status = true;
+  int ZHigh_threshold = 0; //?????????????????????????????????????????????????????????????????????????????????????????????????/
+  int ZLow_threshold = 0;
+  for (int i=0; i < sizeof(data); i++)
+    { 
+    if(command==MLX75306_TZ1){
+      //1, 3, 5, .., 143 will return a
+      //high value TZ1High, all even pixels 2, 4, .., 144 will return a low value TZ1Low
+       if(((i % 2) == 0) && data[i]<ZHigh_threshold){
+        test_status = false;
+       }
+       //if odd values are higher than the low threshold test failed
+       if else((i % 2) && data[i]>ZLow_threshold){
+        test_status = false;
+       }
+       else{
+        //Safe, do nothing
+       }
+    }
+    else if(command==MLX75306_TZ2){
+      //all odd pixels 1, 3, 5, .., 143 will return a low value TZ2Low, all even pixels 2, 4, .., 144 will return a high value TZ2High
+       if((i % 2) && data[i]<ZHigh_threshold){
+        test_status = false;
+       }
+       //if odd values are higher than the low threshold test failed
+       if else(((i % 2) == 0) && data[i]>ZLow_threshold){
+        test_status = false;
+       }
+       else{
+        //Safe, do nothing
+       }
+    }
+    else if(command==MLX75306_TZ12){
+      if(data[i]<ZHigh_threshold){
+        test_status = false;
+       }
+       else{
+        //Safe, do nothing
+       }
+    }
+    else if(command==MLX75306_TZ0){
+       if(data[i]>ZLow_threshold){
+        test_status = false;
+       }
+       else{
+        //Safe, do nothing
+       }
+    }
+    else{
+      println("Command not recognized");
+      test_status = false;
+    }
+   }
+   return test_status;
   digitalWrite(CS, HIGH);
 }
