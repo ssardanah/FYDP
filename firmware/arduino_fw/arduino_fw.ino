@@ -61,8 +61,7 @@
 
 #define TZ12HI_MIN        140
 #define TZ12HI_MAX        240
-
-
+  
 void setup() 
 {
   // Setup serial monitor & SPI protocol
@@ -72,12 +71,12 @@ void setup()
   // Max speed is 20MHz , used 14MHz
   // Clock is idle high (CPOL = 1). Data sampled at rising edge & shifted at falling edge (CPHA = 1).
   // Therefore SPI mode = 3 
-  
+
   SPI.beginTransaction(SPISettings(14000000, MSBFIRST, SPI_MODE3)); 
   
   pinMode(FrmRdyInt, INPUT);
   pinMode(CS, OUTPUT);
-  pinMode(13, OUTPUT); //onboard LED for debugging
+  pinMode(7, OUTPUT); //onboard LED for debugging
 
   // Initialize sensor and sleep
   digitalWrite(CS, LOW);
@@ -87,7 +86,10 @@ void setup()
   digitalWrite(CS, HIGH);
 
   // Start detection
+  set_thresholds(THRESH_LOW,THRESH_HIGH);
   start(); 
+
+  
   
   // Give sensor time to setup
   delay(100);
@@ -96,24 +98,28 @@ void setup()
 
 void loop() 
 {
+  
   // Allocate memory for data
   uint8_t *sensorOutput = malloc(TX_LEN - 12 - 2); // 8-bit ADC output, length excludes junk data
-  set_acquire_8b(sensorOutput);
 
-  for (int i = 0; i <= (TX_LEN - 12 - 2); i++)
+  bool result = zebraTest(MLX75306_TZ0,sensorOutput);
+  //set_acquire_8b(sensorOutput);
+
+  for (int i = 0; i <= (TX_LEN); i++)
   {
     // Convert to volts (check notation) 
-    *sensorOutput = SYS_VOLT * (*(sensorOutput++)) / SYS_RES; 
-
+    //*sensorOutput = SYS_VOLT * (*(sensorOutput++)) / SYS_RES; 
+    Serial.print(result);
+    Serial.print("\t");
     //Format and display as a double
-    Serial.print("Pixel Number: ");
+    Serial.print("Index Number: ");
     Serial.print(i);
     Serial.print("\t");
     Serial.print("Intensity: ");
     Serial.println(sensorOutput[i]);
   }
-  // Free allocated memory for data
-  free(sensorOutput);
+
+  free(sensorOutput); 
 }
 
 /** Set thresholds
@@ -185,9 +191,9 @@ void set_acquire_8b(uint8_t *data){
   digitalWrite(13, LOW);
   //DigitalOut led(LED1);
   while(!digitalRead(FrmRdyInt)) {
-     digitalWrite(13, HIGH);
+     digitalWrite(7, HIGH);
   }
-  digitalWrite(13, LOW);
+  digitalWrite(7, LOW);
   
   digitalWrite(CS, LOW);
   SPI.transfer(MLX75306_RO8);
@@ -222,23 +228,23 @@ bool zebraTest(uint8_t command, uint8_t *data)
 {
   //creating buffer of 0s of tx_length
   uint8_t tx_buffer[TX_LEN] = {0x00}; 
-  tx_buffer[0] = command;
-  tx_buffer[1] = MLX75306_NOP;
-  tx_buffer[2] = MLX75306_NOP;
 
   //Begin SPI
   digitalWrite(CS, LOW);
+  SPI.transfer(command);
+  SPI.transfer(MLX75306_NOP);
+  SPI.transfer(MLX75306_NOP);
   
   // The received data is stored in the tx_buffer in-place 
   // (the old data is replaced with the data received).
   SPI.transfer(tx_buffer, TX_LEN);
-  digitalWrite(CS, HIGH);
+  
   // 12 junk data at the begining and 2 at the end
-  for (int i = 12; i < (TX_LEN - 2); i++)
+  for (int i = 0; i < (TX_LEN); i++)
   {
-    data[i - 12] = tx_buffer[i];    
+    data[i] = tx_buffer[i];    
   } 
-
+  
   // To do: If staments to check if pixel conditions described in each zebra test in the datasheets hold
   //        Use ranges for high and low in defines
  
@@ -291,5 +297,7 @@ bool zebraTest(uint8_t command, uint8_t *data)
       return false;
     }
    }
+   
+  digitalWrite(CS, HIGH);
   return true;
 }
