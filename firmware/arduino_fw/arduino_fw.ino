@@ -89,8 +89,6 @@ void setup()
   set_thresholds(THRESH_LOW,THRESH_HIGH);
   start(); 
 
-  
-  
   // Give sensor time to setup
   delay(100);
 
@@ -102,7 +100,7 @@ void loop()
   // Allocate memory for data
   uint8_t *sensorOutput = malloc(TX_LEN - 12 - 2); // 8-bit ADC output, length excludes junk data
 
-  //bool result = zebraTest(MLX75306_TZ1,sensorOutput);
+  //bool result = zebraTest(MLX75306_TZ0,sensorOutput);
   set_acquire_8b(sensorOutput);
 
   for (int i = 0; i <= (TX_LEN); i++)
@@ -116,7 +114,8 @@ void loop()
     //Serial.print(i);
     //Serial.print("\t");
     //Serial.print("Intensity: ");
-    Serial.println(sensorOutput[i]);
+    //Serial.println(sensorOutput[i]);
+    Serial.println(result);
   }
 
   free(sensorOutput); 
@@ -257,10 +256,6 @@ bool zebraTest(uint8_t command, uint8_t *data)
   SPI.beginTransaction(SPISettings(4000000, MSBFIRST, SPI_MODE3)); 
   // 12 junk data at the begining and 2 at the end
   
-  
-  // To do: If staments to check if pixel conditions described in each zebra test in the datasheets hold
-  //        Use ranges for high and low in defines
- 
   for (int i=0; i < sizeof(data); i++)
     { 
     if(command==MLX75306_TZ1){
