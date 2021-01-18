@@ -6,7 +6,7 @@
 
 // SPI Defines
 #define FrmRdyInt 9
-#define CS        10
+#define CS        4
 #define MOSI      11
 #define MISO      12
 #define SCK       13
@@ -66,13 +66,13 @@ void setup()
 {
   // Setup serial monitor & SPI protocol
   Serial.begin(9600);
-  
+  SPI.begin();
   // SPI Settings: 
   // Max speed is 20MHz , used 14MHz
   // Clock is idle high (CPOL = 1). Data sampled at rising edge & shifted at falling edge (CPHA = 1).
   // Therefore SPI mode = 3 
 
-  SPI.beginTransaction(SPISettings(14000000, MSBFIRST, SPI_MODE3)); 
+  SPI.beginTransaction(SPISettings(4000000, MSBFIRST, SPI_MODE3)); 
   
   pinMode(FrmRdyInt, INPUT);
   pinMode(CS, OUTPUT);
@@ -102,20 +102,20 @@ void loop()
   // Allocate memory for data
   uint8_t *sensorOutput = malloc(TX_LEN - 12 - 2); // 8-bit ADC output, length excludes junk data
 
-  bool result = zebraTest(MLX75306_TZ0,sensorOutput);
-  //set_acquire_8b(sensorOutput);
+  //bool result = zebraTest(MLX75306_TZ1,sensorOutput);
+  set_acquire_8b(sensorOutput);
 
   for (int i = 0; i <= (TX_LEN); i++)
   {
     // Convert to volts (check notation) 
     //*sensorOutput = SYS_VOLT * (*(sensorOutput++)) / SYS_RES; 
-    Serial.print(result);
-    Serial.print("\t");
+    //Serial.print(result);
+    //Serial.print("\t");
     //Format and display as a double
-    Serial.print("Index Number: ");
-    Serial.print(i);
-    Serial.print("\t");
-    Serial.print("Intensity: ");
+    //Serial.print("Index Number: ");
+    //Serial.print(i);
+    //Serial.print("\t");
+    //Serial.print("Intensity: ");
     Serial.println(sensorOutput[i]);
   }
 
@@ -129,12 +129,14 @@ void loop()
  * @return 0 if the operation succeed, 1 if not.
  */
 int set_thresholds(unsigned int low,unsigned int high){
+  SPI.beginTransaction(SPISettings(4000000, MSBFIRST, SPI_MODE3)); 
   digitalWrite(CS, LOW);
   unsigned int thresholds = ((high << 4) && 0xF0) || (low && 0x0F);
   SPI.transfer(MLX75306_WT); 
   SPI.transfer(thresholds); 
   SPI.transfer(MLX75306_NOP); 
   digitalWrite(CS, HIGH); 
+  SPI.endTransaction();
   
   if (thresholds == get_thresholds()) {
     return 0;
@@ -148,11 +150,13 @@ int set_thresholds(unsigned int low,unsigned int high){
  * (RT) command after a WT command or before a SI command. 
  */
 unsigned int get_thresholds(){
+  SPI.beginTransaction(SPISettings(4000000, MSBFIRST, SPI_MODE3)); 
   digitalWrite(CS, LOW);
   SPI.transfer(MLX75306_WT); 
   unsigned int thresholds = SPI.transfer(0x00);
   SPI.transfer(MLX75306_NOP);
   digitalWrite(CS, HIGH);
+  SPI.endTransaction();
 
   return thresholds;
 }
@@ -160,28 +164,34 @@ unsigned int get_thresholds(){
  * Wake up sensor and begin operation 
  */
 void start(){
+  SPI.beginTransaction(SPISettings(4000000, MSBFIRST, SPI_MODE3)); 
   digitalWrite(CS, LOW);
   SPI.transfer(MLX75306_WU);
   SPI.transfer(MLX75306_NOP);
   SPI.transfer(MLX75306_NOP);
   digitalWrite(CS, HIGH);
+  SPI.endTransaction();
 }
 
 /**  Sleep
  * Put sensor in low-power sleep mode 
  */
 void sleep(){
+  SPI.beginTransaction(SPISettings(4000000, MSBFIRST, SPI_MODE3)); 
   digitalWrite(CS, LOW);
   SPI.transfer(MLX75306_SM);
   SPI.transfer(MLX75306_NOP);
   SPI.transfer(MLX75306_NOP);
   digitalWrite(CS, HIGH);
+  SPI.endTransaction();
 }
 
 /**  Acquire 8 bits
  * get 8-bit sensor ADC output 
  */
 void set_acquire_8b(uint8_t *data){
+  SPI.beginTransaction(SPISettings(4000000, MSBFIRST, SPI_MODE3)); 
+  uint8_t test;
   digitalWrite(CS, LOW);
   SPI.transfer(MLX75306_SI);
   SPI.transfer(TIME_INT_MSB);
@@ -196,9 +206,12 @@ void set_acquire_8b(uint8_t *data){
   digitalWrite(7, LOW);
   
   digitalWrite(CS, LOW);
-  SPI.transfer(MLX75306_RO8);
-  SPI.transfer(START_PIXEL);
-  SPI.transfer(END_PIXEL);
+  test = SPI.transfer(MLX75306_RO8);
+  //Serial.println(test, BIN);
+  test = SPI.transfer(START_PIXEL);
+  //Serial.println(test, BIN);
+  test = SPI.transfer(END_PIXEL);
+  //Serial.println(test, BIN);
   
   //creating buffer of 0s of tx_length
   uint8_t tx_buffer[TX_LEN] = {0x00}; 
@@ -211,7 +224,7 @@ void set_acquire_8b(uint8_t *data){
   {
     data[i - 12] = tx_buffer[i];    
   } 
-  
+  SPI.endTransaction();
   digitalWrite(CS, HIGH);
 }
 
@@ -227,6 +240,7 @@ void set_acquire_8b(uint8_t *data){
 bool zebraTest(uint8_t command, uint8_t *data)
 {
   //creating buffer of 0s of tx_length
+  SPI.beginTransaction(SPISettings(4000000, MSBFIRST, SPI_MODE3)); 
   uint8_t tx_buffer[TX_LEN] = {0x00}; 
 
   //Begin SPI
@@ -237,13 +251,12 @@ bool zebraTest(uint8_t command, uint8_t *data)
   
   // The received data is stored in the tx_buffer in-place 
   // (the old data is replaced with the data received).
-  SPI.transfer(tx_buffer, TX_LEN);
-  
+  //SPI.transfer(tx_buffer, TX_LEN);
+  SPI.endTransaction();
+  set_acquire_8b(data);
+  SPI.beginTransaction(SPISettings(4000000, MSBFIRST, SPI_MODE3)); 
   // 12 junk data at the begining and 2 at the end
-  for (int i = 0; i < (TX_LEN); i++)
-  {
-    data[i] = tx_buffer[i];    
-  } 
+  
   
   // To do: If staments to check if pixel conditions described in each zebra test in the datasheets hold
   //        Use ranges for high and low in defines
@@ -252,12 +265,12 @@ bool zebraTest(uint8_t command, uint8_t *data)
     { 
     if(command==MLX75306_TZ1){
       //1, 3, 5, .., 143 will return a
-      //high value TZ1High, all even pixels 2, 4, .., 144 will return a low value TZ1Low
-       if(((i % 2) == 0) && (data[i]<TZ1HI_MIN || data[i]>TZ1HI_MAX)){
+      //high value TZ1High, all even pixels 2, 4, .., 144 will return a low value TZ1Low (TZ1Low must be between TZ1Low_MIN & MAX)
+       if(((i % 2) == 0) && (data[i]<TZ1LO_MIN || data[i]>TZ1LO_MAX)){
         return false;
        }
        //if odd values are higher than the low threshold test failed
-       else if ((i % 2) && (data[i]> TZ1LO_MAX || data[i]<TZ1LO_MIN)){
+       else if ((i % 2) && (data[i]> TZ1HI_MAX || data[i]<TZ1HI_MIN)){
         return false;
        }
        else{
@@ -297,7 +310,7 @@ bool zebraTest(uint8_t command, uint8_t *data)
       return false;
     }
    }
-   
+  SPI.endTransaction();
   digitalWrite(CS, HIGH);
   return true;
 }
