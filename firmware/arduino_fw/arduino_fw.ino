@@ -1,8 +1,16 @@
+/**
+ * To do: 
+ * - Activate LED functionality
+ * - Refactoring
+ */
+
 # include <SPI.h>
 
 //System Defines
 #define SYS_VOLT  5.0 
 #define SYS_RES   (2^8)
+#define SYS_MODE  1 // 1 for sensing 0 for testing
+                    // Specify test command on line 132
 
 // SPI Defines
 #define FrmRdyInt 9
@@ -61,7 +69,8 @@
 
 #define TZ12HI_MIN        140
 #define TZ12HI_MAX        240
-  
+
+
 void setup() 
 {
   // Setup serial monitor & SPI protocol
@@ -89,8 +98,6 @@ void setup()
   set_thresholds(THRESH_LOW,THRESH_HIGH);
   start(); 
 
-  
-  
   // Give sensor time to setup
   delay(100);
 
@@ -100,25 +107,42 @@ void loop()
 {
   
   // Allocate memory for data
-  uint8_t *sensorOutput = malloc(TX_LEN - 12 - 2); // 8-bit ADC output, length excludes junk data
-
-  //bool result = zebraTest(MLX75306_TZ1,sensorOutput);
-  set_acquire_8b(sensorOutput);
-
-  for (int i = 0; i <= (TX_LEN); i++)
+  uint8_t *sensorOutput = malloc(TX_LEN); // 8-bit ADC output, length excludes junk data
+  
+  if (SYS_MODE == 1)
   {
-    // Convert to volts (check notation) 
-    //*sensorOutput = SYS_VOLT * (*(sensorOutput++)) / SYS_RES; 
-    //Serial.print(result);
-    //Serial.print("\t");
-    //Format and display as a double
-    //Serial.print("Index Number: ");
-    //Serial.print(i);
-    //Serial.print("\t");
-    //Serial.print("Intensity: ");
-    Serial.println(sensorOutput[i]);
+    double *intensity = malloc(TX_LEN);
+    set_acquire_8b(sensorOutput);
+    for (int i = 0; i <= (TX_LEN); i++)
+    {
+      Serial.println(*(sensorOutput));
+      /* Convert to volts (check notation) 
+      *intensity = (*(sensorOutput++))/ SYS_RES; 
+      Serial.print("\t");
+      //Format and display
+      Serial.print("Index Number: ");
+      Serial.print(i);
+      Serial.print("\t");
+      Serial.print("Intensity: ");
+      Serial.println(*(intensity++));*/
+    }
+    free(intensity);
   }
 
+  else if (SYS_MODE == 0)
+  {
+    bool result = zebraTest(MLX75306_TZ0,sensorOutput);
+    if (result == 1) Serial.println("Test Passed");
+    else if (result == 0) Serial.println("Test Failed");
+  }
+  else if (SYS_MODE == 3)
+  {
+    set_acquire_8b(sensorOutput);
+ 
+      Serial.print("Sanity Byte: ");
+      Serial.println(sensorOutput[0],BIN);
+
+  }
   free(sensorOutput); 
 }
 
@@ -257,10 +281,6 @@ bool zebraTest(uint8_t command, uint8_t *data)
   SPI.beginTransaction(SPISettings(4000000, MSBFIRST, SPI_MODE3)); 
   // 12 junk data at the begining and 2 at the end
   
-  
-  // To do: If staments to check if pixel conditions described in each zebra test in the datasheets hold
-  //        Use ranges for high and low in defines
- 
   for (int i=0; i < sizeof(data); i++)
     { 
     if(command==MLX75306_TZ1){
