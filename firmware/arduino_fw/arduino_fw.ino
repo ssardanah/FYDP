@@ -73,6 +73,7 @@
 
 void setup() 
 {
+  pinMode(5, OUTPUT); //LED control 
   // Setup serial monitor & SPI protocol
   Serial.begin(9600);
   SPI.begin();
@@ -105,9 +106,11 @@ void setup()
 
 void loop() 
 {
+  digitalWrite(5, HIGH); // turn LEDs on
   
   // Allocate memory for data
   uint8_t *sensorOutput = malloc(TX_LEN); // 8-bit ADC output, length excludes junk data
+  uint8_t *arrayAdd = sensorOutput;
   
   if (SYS_MODE == 1)
   {
@@ -115,16 +118,16 @@ void loop()
     set_acquire_8b(sensorOutput);
     for (int i = 0; i <= (TX_LEN); i++)
     {
-      Serial.println(*(sensorOutput));
-      /* Convert to volts (check notation) 
-      *intensity = (*(sensorOutput++))/ SYS_RES; 
-      Serial.print("\t");
-      //Format and display
       Serial.print("Index Number: ");
       Serial.print(i);
-      Serial.print("\t");
-      Serial.print("Intensity: ");
-      Serial.println(*(intensity++));*/
+      Serial.print("| ");
+      Serial.print("Raw Intensity; ");
+      Serial.println(*(sensorOutput++));
+      // Convert to volts (check notation) 
+      //*intensity = (*(sensorOutput++))/ (double)SYS_RES; 
+      //Serial.print(";");
+      //Serial.print("Percent Intensity: ");
+      //Serial.println(*(intensity++));
     }
     free(intensity);
   }
@@ -143,7 +146,7 @@ void loop()
       Serial.println(sensorOutput[0],BIN);
 
   }
-  free(sensorOutput); 
+  free(arrayAdd); 
 }
 
 /** Set thresholds
