@@ -9,7 +9,7 @@
 //System Defines
 #define SYS_VOLT  5.0 
 #define SYS_RES   (2^8)
-#define SYS_MODE  0 // 1 for sensing 0 for testing
+#define SYS_MODE  1 // 1 for sensing 0 for testing
                     // Specify test command on line 132
 
 // SPI Defines
@@ -73,6 +73,7 @@
 
 void setup() 
 {
+  pinMode(5, OUTPUT); //LED control 
   // Setup serial monitor & SPI protocol
   Serial.begin(9600);
   SPI.begin();
@@ -105,25 +106,28 @@ void setup()
 
 void loop() 
 {
+  digitalWrite(5, HIGH); // turn LEDs on
   
   // Allocate memory for data
-  uint8_t *sensorOutput = malloc(TX_LEN - 12 - 2); // 8-bit ADC output, length excludes junk data
+  uint8_t *sensorOutput = malloc(TX_LEN); // 8-bit ADC output, length excludes junk data
+  uint8_t *arrayAdd = sensorOutput;
   
   if (SYS_MODE == 1)
   {
-    double *intensity = malloc(TX_LEN - 12 - 2);
+    double *intensity = malloc(TX_LEN);
     set_acquire_8b(sensorOutput);
     for (int i = 0; i <= (TX_LEN); i++)
     {
-      // Convert to volts (check notation) 
-      *intensity = SYS_VOLT * (*(sensorOutput++)) / SYS_RES; 
-      Serial.print("\t");
-      //Format and display
       Serial.print("Index Number: ");
       Serial.print(i);
-      Serial.print("\t");
-      Serial.print("Intensity: ");
-      Serial.println(*(intensity++));
+      Serial.print("| ");
+      Serial.print("Raw Intensity; ");
+      Serial.println(*(sensorOutput++));
+      // Convert to volts (check notation) 
+      //*intensity = (*(sensorOutput++))/ (double)SYS_RES; 
+      //Serial.print(";");
+      //Serial.print("Percent Intensity: ");
+      //Serial.println(*(intensity++));
     }
     free(intensity);
   }
@@ -134,8 +138,15 @@ void loop()
     if (result == 1) Serial.println("Test Passed");
     else if (result == 0) Serial.println("Test Failed");
   }
+  else if (SYS_MODE == 3)
+  {
+    set_acquire_8b(sensorOutput);
+ 
+      Serial.print("Sanity Byte: ");
+      Serial.println(sensorOutput[0],BIN);
 
-  free(sensorOutput); 
+  }
+  free(arrayAdd); 
 }
 
 /** Set thresholds
