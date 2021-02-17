@@ -3,8 +3,8 @@
 #define peripheralName    "HaemoLuminate"
 
 
-bool presence = true; 
-byte sizeVessel = 15.0; 
+bool presence = false; 
+byte sizeVessel = 0.0; 
 bool newPresence; 
 byte newSizeVessel; 
 
