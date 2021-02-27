@@ -70,9 +70,11 @@
 #define TZ12HI_MIN        140
 #define TZ12HI_MAX        240
 
+byte incomingByte = 1;
 
 void setup() 
 {
+
   pinMode(5, OUTPUT); //LED control 
   // Setup serial monitor & SPI protocol
   Serial.begin(9600);
@@ -83,6 +85,8 @@ void setup()
   // Therefore SPI mode = 3 
 
   SPI.beginTransaction(SPISettings(4000000, MSBFIRST, SPI_MODE3)); 
+
+ 
   
   pinMode(FrmRdyInt, INPUT);
   pinMode(CS, OUTPUT);
@@ -107,7 +111,6 @@ void setup()
 void loop() 
 {
   digitalWrite(5, HIGH); // turn LEDs on
-  byte incomingByte; 
   
   // Allocate memory for data
   uint8_t *sensorOutput = malloc(TX_LEN); // 8-bit ADC output, length excludes junk data
