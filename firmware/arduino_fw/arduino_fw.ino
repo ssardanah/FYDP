@@ -150,8 +150,6 @@ void loop()
   free(arrayAdd); 
   
   // read the incoming byte:
-  if (Serial.available() >= 0) 
-  {  
   incomingByte = Serial.read();
 
   if(incomingByte == '0')
@@ -159,7 +157,6 @@ void loop()
     Serial.end(); 
   }
   
-  }
 }
 
 /** Set thresholds
