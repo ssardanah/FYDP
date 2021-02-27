@@ -24,8 +24,6 @@ void setup() {
     while (1);
   }
 
-  
-
   BLE.setLocalName(peripheralName);  // Set name for connection
   
   BLE.setAdvertisedService(bloodVesselDetectionService); // Advertise service
@@ -43,7 +41,6 @@ void setup() {
   Serial.println("Waiting for connections...");
 
   // To do: SPI setup-here
-  
 }
 
 

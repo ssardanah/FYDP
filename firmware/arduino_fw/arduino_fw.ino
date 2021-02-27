@@ -107,6 +107,7 @@ void setup()
 void loop() 
 {
   digitalWrite(5, HIGH); // turn LEDs on
+  byte incomingByte; 
   
   // Allocate memory for data
   uint8_t *sensorOutput = malloc(TX_LEN); // 8-bit ADC output, length excludes junk data
@@ -147,6 +148,18 @@ void loop()
 
   }
   free(arrayAdd); 
+  
+  // read the incoming byte:
+  if (Serial.available() >= 0) 
+  {  
+  incomingByte = Serial.read();
+
+  if(incomingByte == '0')
+  {
+    Serial.end(); 
+  }
+  
+  }
 }
 
 /** Set thresholds
