@@ -14,7 +14,7 @@
 
 //Detection algorithm defines
 #define NUM_PIXELS                  143.0
-#define ATTENUATION_THRESH                  0.75
+#define ATTENUATION_THRESH          0.75
 #define BLE_ACTIVE                  0
 #define PRESENCE_DETECTION_ACTIVE   1
 #define SIZE_DETECTION_ACTIVE       0
@@ -411,7 +411,7 @@ double detectSize(uint8_t *data)
 
   for (int i = 0; i < (TX_LEN - 12 - 2); i++)
   {
-    if (data [i] < maxValue && data [i] < maxValue) 
+    if (data [i] < maxValue && data [i] > minValue) 
     {
       numLowPixels ++;
     }
