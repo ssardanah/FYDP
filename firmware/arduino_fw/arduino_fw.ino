@@ -12,6 +12,15 @@
 #define SYS_MODE  1 // 1 for sensing 0 for testing
                     // Specify test command on line 132
 
+//Detection algorithm defines
+#define NUM_PIXELS                  143.0
+#define ATTENUATION_THRESH                  0.75
+#define BLE_ACTIVE                  0
+#define PRESENCE_DETECTION_ACTIVE   1
+#define SIZE_DETECTION_ACTIVE       0
+#define PIXEL_HEIGHT                100 // micrometers
+#define PIXEL_PITCH                 50  // micrometers
+
 // SPI Defines
 #define FrmRdyInt 9
 #define CS        4
@@ -113,46 +122,57 @@ void loop()
   digitalWrite(5, HIGH); // turn LEDs on
   
   // Allocate memory for data
-  uint8_t *sensorOutput = malloc(TX_LEN); // 8-bit ADC output, length excludes junk data
-  uint8_t *arrayAdd = sensorOutput;
+  uint8_t *sensorOutput = malloc(TX_LEN-12-2); // 8-bit ADC output, length excludes junk data
+  uint8_t *sensorOutputAdd = sensorOutput;
+  bool vesselPresence = false;  
+  double vesselSize = 0.0;
   
   if (SYS_MODE == 1)
   {
-    double *intensity = malloc(TX_LEN);
     set_acquire_8b(sensorOutput);
-    for (int i = 0; i <= (TX_LEN); i++)
+    for (int i = 0; i <= (TX_LEN-12-2); i++)
     {
-      Serial.print("Index Number: ");
+      Serial.print("Pixel Number: ");
       Serial.print(i);
       Serial.print("| ");
-      Serial.print("Raw Intensity; ");
+      Serial.print("Raw Intensity: ");
       Serial.println(*(sensorOutput++));
-      // Convert to volts (check notation) 
-      //*intensity = (*(sensorOutput++))/ (double)SYS_RES; 
-      //Serial.print(";");
-      //Serial.print("Percent Intensity: ");
-      //Serial.println(*(intensity++));
+      
     }
-    free(intensity);
-  }
+    
 
+    if (PRESENCE_DETECTION_ACTIVE == 1)
+      {
+        vesselPresence = detectPresence(sensorOutputAdd);
+        Serial.print("| ");
+        Serial.print("Vessel Presence: ");
+        Serial.println(vesselPresence);
+      }
+      
+      if (SIZE_DETECTION_ACTIVE == 1)
+      {
+        if (vesselPresence == false) vesselSize = 0.0; 
+        else
+        {
+           vesselSize = detectSize(sensorOutputAdd);
+        }
+        Serial.print("| ");
+        Serial.print("Vessel Size: ");
+        Serial.println(vesselSize);
+      }
+  }
+  
   else if (SYS_MODE == 0)
   {
     bool result = zebraTest(MLX75306_TZ0,sensorOutput);
     if (result == 1) Serial.println("Test Passed");
     else if (result == 0) Serial.println("Test Failed");
   }
-  else if (SYS_MODE == 3)
-  {
-    set_acquire_8b(sensorOutput);
- 
-      Serial.print("Sanity Byte: ");
-      Serial.println(sensorOutput[0],BIN);
-
-  }
-  free(arrayAdd); 
+  
+  free(sensorOutputAdd); 
   
   // read the incoming byte:
+  //for printing into text file, to be used with python
   incomingByte = Serial.read();
 
   if(incomingByte == '0')
@@ -349,4 +369,55 @@ bool zebraTest(uint8_t command, uint8_t *data)
   SPI.endTransaction();
   digitalWrite(CS, HIGH);
   return true;
+}
+
+bool detectPresence(uint8_t *data)
+{
+  uint8_t oldMax = -1; 
+  uint8_t maxValue = 0; 
+  double  numLowPixels = 0.0; 
+  
+  for (int i = 0; i < (TX_LEN - 12 - 2); i++)
+  {
+    maxValue = max(oldMax, data[i]);
+    oldMax = data [i]; 
+  } 
+
+  for (int i = 0; i < (TX_LEN - 12 - 2); i++)
+  {
+    if (data [i] < maxValue * ATTENUATION_THRESH) numLowPixels ++;
+  } 
+  if (numLowPixels >= NUM_PIXELS/4) return true;
+  else return false; 
+}
+
+double detectSize(uint8_t *data)
+{
+  uint8_t oldMax = -1; 
+  uint8_t oldMin = 257; 
+  uint8_t maxValue = 0; 
+  uint8_t minValue = 0; 
+  double  numLowPixels = 0.0; 
+  double  pixelSize = 0.0; 
+  
+  for (int i = 0; i < (TX_LEN - 12 - 2); i++)
+  {
+    maxValue = max(oldMax, data[i]);
+    oldMax = data [i]; 
+    
+    minValue = min(oldMin, data[i]);
+    oldMin = data [i]; 
+  } 
+
+  for (int i = 0; i < (TX_LEN - 12 - 2); i++)
+  {
+    if (data [i] < maxValue && data [i] < maxValue) 
+    {
+      numLowPixels ++;
+    }
+  } 
+
+  pixelSize = numLowPixels * PIXEL_HEIGHT + (numLowPixels - 1) * PIXEL_PITCH;
+
+  return pixelSize;
 }
