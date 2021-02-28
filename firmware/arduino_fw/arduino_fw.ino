@@ -9,14 +9,18 @@
 #define SYS_MODE  1 // 1 for sensing 0 for testing
                     // Specify test command on line 132
 
-//Detection algorithm defines
-#define NUM_PIXELS                  142
-#define ATTENUATION_THRESH          0.75
+
 #define BLE_ACTIVE                  0
 #define PRESENCE_DETECTION_ACTIVE   0
-#define SIZE_DETECTION_ACTIVE       0
-#define PIXEL_HEIGHT                100 // micrometers
-#define PIXEL_PITCH                 50  // micrometers
+#define TEMPERATURE                 0;
+
+// SPI Defines
+#define FrmRdyInt 9
+#define CS        4
+#define MOSI      11
+#define MISO      12
+#define SCK       13
+
 
 // SPI Defines
 #define FRAME_READY        9
@@ -49,6 +53,7 @@
 #define END_PIXEL     0x8F
 
 //From datasheet N = (ending pixel - starting pixel) + 1 + 17
+
 #define TX_LEN        159
 #define NUM_PIXELS    144
 
@@ -78,7 +83,7 @@
 
 // Potentiometer global variables
 #define POT_INCREMENT   1
-#define POT_INITIAL     0xFF
+#define POT_INITIAL     0x55
 #define POT_ADDRESS     0x00
 int potValue = POT_INITIAL;
 int newPotValue;  
@@ -175,17 +180,15 @@ void loop()
   // Allocate memory for data
   uint8_t* sensorOutput = (uint8_t*)malloc(NUM_PIXELS); // 8-bit ADC output, length excludes junk data
   uint8_t* sensorOutputAdd = sensorOutput;
+  double temperatureOutput = 0; // TO REWORK
   
   if (SYS_MODE == 1)
   {
     set_acquire_8b(sensorOutputAdd);
-//    if (dataNeedsAdjustement)
-//    { 
-//      set_acquire_8b(sensorOutputAdd);
-//      dataNeedsAdjustement = adjustSaturation(sensorOutputAdd); 
-//    }
-    
-    
+    temperatureOutput = getTemperatureReading(TEMPERATURE); //TO REWORK
+    Serial.print("Temperature: ");
+    Serial.println(temperatureOutput);
+
     for (int i = 1; i < NUM_PIXELS-1; i++)
     {
       Serial.print("Pixel Number: ");
@@ -203,20 +206,6 @@ void loop()
       Serial.println(newPresence);
     }
       
-    if (SIZE_DETECTION_ACTIVE == 1)
-    {
-      if (newPresence == false) 
-      {
-        newSizeVessel = 0.0; 
-      }
-      else
-      {
-         newSizeVessel = detectSize(sensorOutputAdd);
-      }
-      Serial.print("| ");
-      Serial.print("Vessel Size: ");
-      Serial.println(newSizeVessel);
-    }
 
     if (BLE_ACTIVE == 1) 
     {
@@ -291,6 +280,18 @@ void loop()
   
   else if (SYS_MODE == 0)
   {
+    bool result = zebraTest(MLX75306_TZ0,sensorOutput);
+    if (result == 1) Serial.println("Test Passed");
+    else if (result == 0) Serial.println("Test Failed");
+  }
+  
+  free(sensorOutputAdd); 
+  // read the incoming byte:
+  //for printing into text file, to be used with python
+  incomingByte = Serial.read();
+
+  if(incomingByte == '0')
+  {
       bool result = zebraTest(MLX75306_TZ0,sensorOutputAdd);
       if (result == 1)
       {
@@ -302,13 +303,8 @@ void loop()
       }
   }
 
-  else if (SYS_MODE == 2)
-  {
-    set_acquire_8b(sensorOutputAdd);
-    Serial.println("Acquired Values");
-  }  
-  free(sensorOutput);
 }
+
 
 /** Set thresholds
  * This function set the low and high thresholds
@@ -402,7 +398,11 @@ void set_acquire_8b(uint8_t *data){
 
   for(int i = 0; i < 9 ; i++)
   {
-    SPI.transfer(MLX75306_NOP);
+    uint8_t temp = SPI.transfer(MLX75306_NOP); //0x00
+    if(i == 5 ) {
+      globalTempVar = temp;
+    }
+
   }
   
   SPI.transfer((void*)tx_buffer, NUM_PIXELS + 3); 
@@ -412,7 +412,8 @@ void set_acquire_8b(uint8_t *data){
   // 12 junk data at the begining and 3 at the end
   for (int i = 0; i < NUM_PIXELS; i++)   
   {
-    data[i] = tx_buffer[i];    
+    data[i] = tx_buffer[i];   
+ 
   } 
   
   SET_DATA_STATUS_LED = LOW;
@@ -507,54 +508,283 @@ bool zebraTest(uint8_t command, uint8_t *data)
 
 bool detectPresence(uint8_t *data)
 {
-  uint8_t oldMax = -1; 
-  uint8_t maxValue = 0; 
-  double  numLowPixels = 0.0; 
-  
-  for (int i = 0; i < (TX_LEN - 12 - 2); i++)
-  {
-    maxValue = max(oldMax, data[i]);
-    oldMax = data [i]; 
-  } 
+            int counter = 0; 
+            double data2[(NUM_PIXELS - 2)];
+           
+            for (int i=1; i<(NUM_PIXELS - 1); i++){
+             
+                 data2[counter] = (double)(data[i]/255.0);
+//                 Serial.print("Pixel Number: ");
+//                 Serial.print(i);
+//                 Serial.print("| ");
+//                 Serial.print("Raw Intensity: ");
+//                 Serial.println(data2[counter]*(255.0)); 
+//                 Serial.println(data2[counter]); 
+                 counter ++; 
+              
+            }
 
-  for (int i = 0; i < (TX_LEN - 12 - 2); i++)
-  {
-    if (data [i] < maxValue * ATTENUATION_THRESH) numLowPixels ++;
-  } 
-  if (numLowPixels >= NUM_PIXELS/4) return true;
-  else return false; 
-}
+             int dataSize = counter;
+             int l = 0;
+             int z = 0;
+             int a = 0; 
+             int pos = 0;
+             int neg = 0; 
+             int clearDip = 0;
+             int highValue = 0; 
+             int concaveBVup = 0;
+             int concaveBVdown = 0;
+             int smoothSize = dataSize/5; // if data size is 127 --> 25 --> ??does this round down?
+             int fivePointsSize = smoothSize/5;
+             int signChangeCounter = 0;
+             int slopeSize = 0; 
+             int presence = 0;
+             double arrayB[5];
+             double arrayD[5]; 
+             double dataOut[dataSize];
+             double dataOutTwo[dataSize];
+             double smooth[smoothSize]; 
+             double fivePoints[fivePointsSize]; 
+             double finalSignal[smoothSize]; 
+             double signalGradient[smoothSize];
+             double finalGradient[fivePointsSize];
+             bool fullConcave;
+             bool partConcave; 
+                 
+           /*removing erroneous values*/
+            for(int i = 0; i < dataSize; i ++) {
+              if(i == 0 || i == (dataSize - 1)) {
+                dataOut[i] = data2[i];
+              } else if((((1.10*data2[i-1]) < data2[i]) && (data2[i] > (1.10*data2[i+1]))) || (((0.9*dataOut[i-1]) > dataOut[i]) && (dataOut[i] < (0.9*dataOut[i+1])))) {
+                   dataOut[i] = (data2[i-1] + data2[i+1])/(2.00);
+                } else {
+                    dataOut[i] = data2[i];
+                 }
+              }
+//          
+//            for (int i=0; i < dataSize; i++){          
+//                 Serial.print("Pixel Number: ");
+//                 Serial.print(i);
+//                 Serial.print("| ");
+//                 Serial.print("dataOut: ");
+//                 Serial.println(dataOut[i]);  
+//              }
+//             
+            /*smooth the signal*/ 
+            for(int n = 0; n < (dataSize-4); n=n+5) {  
+              arrayB[0] = dataOut[n]; //change back to dataOutTwo if get it working
+              arrayB[1] = dataOut[n+1];
+              arrayB[2] = dataOut[n+2];
+              arrayB[3] = dataOut[n+3];
+              arrayB[4] = dataOut[n+4];      
+              smooth[l] = getMean(arrayB, 5); // do I need to have a * before arrayB to show im passing in a pointer?
+              l++;
+            }
 
-double detectSize(uint8_t *data)
-{
-  uint8_t oldMax = -1; 
-  uint8_t oldMin = 257; 
-  uint8_t maxValue = 0; 
-  uint8_t minValue = 0; 
-  double  numLowPixels = 0.0; 
-  double  pixelSize = 0.0; 
-  
-  for (int i = 0; i < (TX_LEN - 12 - 2); i++)
-  {
-    maxValue = max(oldMax, data[i]);
-    oldMax = data [i]; 
+               
+            /*smoothing it further by removing random dips*/
+            for(int i = 0; i < smoothSize; i++) {
+              if((i == 0) || (i == (smoothSize - 1))) {
+                finalSignal[i] = smooth[i];
+              } else if(((smooth[i-1] < smooth[i]) && (smooth[i] > smooth[i+1])) || ((smooth[i-1] > smooth[i]) && (smooth[i] < smooth[i+1]))) {
+                finalSignal[i] = (smooth[i-1] + smooth[i+1])/(2.00); 
+              } else {
+                  finalSignal[i] = smooth[i];
+                }
+            }
+            
+//            for(int i = 0; i < smoothSize; i ++)
+//            {
+//              Serial.print("final signal index: ");
+//              Serial.print(i); 
+//              Serial.print(" | "); 
+//              Serial.print("value: ");
+//              Serial.println(finalSignal[i]); 
+//            }
+           
+            /*getting the gradient of finalSignal*/ // TESTED AND WORKS CORRECTLY
+            for (int i = 0; i < smoothSize; i++) {
+              if(i == 0){
+                signalGradient[i] = finalSignal[i+1] - finalSignal[i];
+              } else if(i == (smoothSize-1)) {
+                signalGradient[i] = finalSignal[smoothSize-1] - finalSignal[smoothSize-2];
+              } else {
+                signalGradient[i] = 0.5 * (finalSignal[i+1] - finalSignal[i-1]); 
+              }
+            }
+             
+            /*removing zeros from gradient so can check if signal change*/
+            for (int i = 0; i < smoothSize; i++) {
+              if ((signalGradient[i] == 0) && (i == 0 || i == (smoothSize - 1))) {
+                signalGradient[i] = signalGradient[i];
+              } else if ((signalGradient[i] == 0) && (signalGradient[i-1] <= 0)) {
+                signalGradient[i] = -0.0000001;
+              } else if ((signalGradient[i] == 0) && (signalGradient[i-1] >= 0)) {
+                signalGradient[i] = 0.0000001;
+              } else {
+                signalGradient[i] = signalGradient[i]; 
+              }
+            }
+             
+            /*checking the number of sign changes*/
+            for(int i = 0; i < (smoothSize-1); i++) {
+              if((signalGradient[i]*signalGradient[i+1]) < 0) {
+                signChangeCounter = signChangeCounter + 1;
+              }
+            }
+              
+            /*create an array of that size and fill the array with the indeces of sign changes*/
+            int signChange[signChangeCounter];
+            if (signChangeCounter != 0) {
+              for(int i = 0; i < (smoothSize - 1); i++) {
+                if((signalGradient[i]*signalGradient[i+1]) < 0) {
+                  signChange[a] = i, 
+                  a = a + 1;
+                }
+              }
+            }
+            
+            /*create a slope array with the slope of each section*/
+            slopeSize = (signChangeCounter + 1); 
+            double slope[slopeSize]; 
+ 
+            if(signChangeCounter == 0) {
+              slope[0] = (finalSignal[smoothSize - 1] - finalSignal[0])/(smoothSize-1-0); //if no sign change, min and max should be at endpoints
+            } else if(signChangeCounter > 0) {
+              if(slopeSize == 2) {
+                slope[0] = (finalSignal[signChange[0]] - finalSignal[0])/(signChange[0]-0);
+                slope[1] = (finalSignal[smoothSize-1] - finalSignal[(signChange[0]+1)])/((smoothSize - 1) - (signChange[0]+1)); 
+              } else if(slopeSize > 2) {
+                slope[0] = (finalSignal[signChange[0]] - finalSignal[0])/(signChange[0]-0);
+                slope[slopeSize-1] = (finalSignal[smoothSize-1] - finalSignal[(signChange[(signChangeCounter - 1)]+1)])/((smoothSize - 1) - (signChange[(signChangeCounter - 1)]+1));
+                for(int i = 1; i < (slopeSize - 1); i++) {
+                  slope[i] = (finalSignal[signChange[i]] - finalSignal[signChange[i-1]+1])/(signChange[i] - (signChange[i-1]+1));
+                }
+              }
+            }
+
+//            for(int i = 0; i < slopeSize; i ++)
+//            {
+//              Serial.print("index of slope array: ");
+//              Serial.print(i); 
+//              Serial.print(" | "); 
+//              Serial.print("slope: ");
+//              Serial.println(slope[i]); 
+//            }
     
-    minValue = min(oldMin, data[i]);
-    oldMin = data [i]; 
-  } 
+            for(int i = 0; i < slopeSize; i ++) {
+              if(slope[i] > 0) { //one positive value 
+                pos = pos + 1; 
+                if (abs(slope[i]) > 0.0300)
+                {
+                  highValue = highValue + 1; 
+                }
+              } else if(slope[i] < 0) { //one negative value 
+                neg = neg + 1; 
+                if  (abs(slope[i]) > 0.0300) {
+                  highValue = highValue + 1; 
+                } 
+              }
+            }
+      
+             //Clear Dip and Concave Detection 
+              for(int n = 0; n < (smoothSize-4); n=n+5) {  
+                arrayD[0] = finalSignal[n];
+                arrayD[1] = finalSignal[n+1];
+                arrayD[2] = finalSignal[n+2];
+                arrayD[3] = finalSignal[n+3];
+                arrayD[4] = finalSignal[n+4];      
+                fivePoints[z] = getMean(arrayD, 5); 
+                z++;
+              } 
 
-  for (int i = 0; i < (TX_LEN - 12 - 2); i++)
-  {
-    if (data [i] < maxValue && data [i] > minValue) 
-    {
-      numLowPixels ++;
-    }
-  } 
+            /*getting the gradient of the fivePoints array*/ // TESTED AND WORKS CORRECTLY
+            for (int i = 0; i < fivePointsSize; i++) {
+              if(i == 0){
+                finalGradient[i] = fivePoints[i+1] - fivePoints[i];
+              } else if(i == (fivePointsSize-1)) {
+                finalGradient[i] = fivePoints[fivePointsSize-1] - fivePoints[fivePointsSize-2];
+              } else {
+                finalGradient[i] = 0.5 * (fivePoints[i+1] - fivePoints[i-1]); 
+              }
+            }
 
-  pixelSize = numLowPixels * PIXEL_HEIGHT + (numLowPixels - 1) * PIXEL_PITCH;
+//           for(int i = 0; i < fivePointsSize; i ++)
+//            {
+//              Serial.print("finalGradient index: ");
+//              Serial.print(i); 
+//              Serial.print("value: ");
+//              Serial.println(finalGradient[i]); 
+//            }
+ 
+        
+              /*check for clear dip*/ 
+              for(int i = 0; i < (fivePointsSize - 2); i ++) { 
+                if(finalGradient[i] < 0) {
+                  if((abs(finalGradient[i]) > finalGradient[i+1]) && (abs(finalGradient[i+1]) < finalGradient[i+2])) {
+                    clearDip = clearDip + 1;
+                  }
+                }
+              }
+              
+              /*check if gradient of five points is ascending --> concave upwards*/
+              for(int i = 0; i < (fivePointsSize - 1); i ++) {
+                if((finalGradient[i] < finalGradient[i+1]) && ((finalGradient[i] * finalGradient[i+1]) > 0) && (finalGradient[i] > 0)) {
+                  concaveBVup = concaveBVup + 1;
+                } else if((abs(finalGradient[i]) > abs(finalGradient[i+1])) && ((finalGradient[i] * finalGradient[i+1]) > 0) && (finalGradient[i] < 0)) {
+                  concaveBVdown = concaveBVdown +1;
+                }
+              }
+              
+         
+              if((concaveBVup == 4) || (concaveBVdown == 4)) {
+                fullConcave = true; 
+              } else {
+                fullConcave = false; 
+              }
+        
+              if((concaveBVup == 3) || (concaveBVdown == 3)) {
+                partConcave = true; 
+              } else {
+                partConcave = false; 
+              }
 
-  return pixelSize;
-}
+            /*DETECTION PORTION*/ 
+            if((pos > 0) && (neg > 0) && (highValue > 0)) {
+              presence = 1; 
+            } else if(clearDip > 0) {
+              presence = 2; 
+            } else if(fullConcave == true) {
+              presence = 3; 
+            } else if((slopeSize == 1) && (abs(slope[0]) > 0.015) && (partConcave == true)) {
+              presence = 4;  
+            } else {
+              presence = 0;
+            } 
+
+//              Serial.print("Pos: ");
+//              Serial.println(pos); 
+//              Serial.print("Neg: ");
+//              Serial.println(neg); 
+//              Serial.print("HighValue: ");
+//              Serial.println(highValue);
+//              Serial.print("Clear Dip: ");
+//              Serial.println(clearDip);  
+//              Serial.print("fullConcave: ");
+//              Serial.println(fullConcave); 
+//              Serial.print("partConcave: ");
+//              Serial.println(partConcave);
+//              Serial.print("Slope:  ");
+//              Serial.println(slope[0]);
+              Serial.print("Presence type: ");
+              Serial.println(presence); 
+                        
+            /*final return*/ 
+            if (presence > 0) return true; 
+            else return false; 
+        
+  }
+
 
 bool adjustSaturation(uint8_t *data)
 { 
@@ -565,7 +795,7 @@ bool adjustSaturation(uint8_t *data)
   uint8_t second = 0;  
   uint8_t third = 0;
   
-  for (int i = 0; i < NUM_PIXELS; i++)
+  for (int i = 1; i < NUM_PIXELS-1; i++)
   {
     if (data[i] > 250 && data[i] <= 255) numOverSaturatedPixels++; 
 
@@ -593,6 +823,7 @@ bool adjustSaturation(uint8_t *data)
     setPotValue(newPotValue);
     potValue = newPotValue; 
     dataNeedsAdjustement = true; 
+    
   }
   
   // if undersaturated
@@ -609,6 +840,7 @@ bool adjustSaturation(uint8_t *data)
   {
     dataNeedsAdjustement = false; 
   }
+
   return dataNeedsAdjustement; 
 }
 
@@ -623,3 +855,61 @@ void setPotValue (byte hexResistance)
   SET_CS_POT = HIGH;
   SPI.endTransaction();
 }
+
+
+
+/*
+ * Get the mean from an array of ints
+ */
+double getMean(double * val, int arrayCount) {
+  double total = 0;
+  for (int i = 0; i < arrayCount; i++) {
+    total = total + val[i];
+  }
+  double avg = (double)(total/arrayCount);
+  //Serial.println(avg);
+  return avg;
+}
+
+
+double getStdDev(double * val, int arrayCount) {
+  double avg = getMean(val, arrayCount);
+  double total = 0;
+  for (int i = 0; i < arrayCount; i++) {
+    total = total + (val[i] - avg) * (val[i] - avg);
+  }
+
+  double variance = (double)(total/arrayCount);
+  double stdDev = sqrt(variance);
+  return stdDev;
+}
+
+
+/*Get gradient function*/
+double * getGradient(double * val, int valArraySize) 
+{
+  double gradient[valArraySize]; //static because we can't return the address of a local variable to outside of the function 
+  
+  for (int i = 0; i < valArraySize; i++) {
+    if(i == 0){
+      gradient[i] = val[i+1] - val[i];
+    } else if(i == (valArraySize-1)) {
+      gradient[i] = val[valArraySize-1] - val[valArraySize-2];
+    } else {
+      gradient[i] = 0.5 * (val[i+1] - val[i-1]); 
+    }
+  }
+  return gradient;
+}
+
+double getTemperatureReading(uint8_t val) 
+{
+  double slope = (100-75)/(60-80);
+  double y_intercept = 165.0;
+  double temperature = 0;
+
+  temperature = (val - y_intercept)/slope;
+  
+  return temperature;
+}
+    
