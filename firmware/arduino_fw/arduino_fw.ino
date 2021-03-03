@@ -1,10 +1,7 @@
-/**
- * To do: 
- * - Activate LED functionality
- * - Refactoring
- */
+#include <SPI.h>
+#include <ArduinoBLE.h>
+#include <Serial.h>
 
-# include <SPI.h>
 
 //System Defines
 #define SYS_VOLT  5.0 
@@ -119,10 +116,11 @@ void setup()
 
 void loop() 
 {
+  delay(1000);
   digitalWrite(5, HIGH); // turn LEDs on
   
   // Allocate memory for data
-  uint8_t *sensorOutput = malloc(TX_LEN-12-2); // 8-bit ADC output, length excludes junk data
+  uint8_t *sensorOutput = (uint8_t*)malloc(TX_LEN-12-2); // 8-bit ADC output, length excludes junk data
   uint8_t *sensorOutputAdd = sensorOutput;
   bool vesselPresence = false;  
   double vesselSize = 0.0;
@@ -236,7 +234,7 @@ void start(){
 /**  Sleep
  * Put sensor in low-power sleep mode 
  */
-void sleep(){
+void sensorSleep(){
   SPI.beginTransaction(SPISettings(4000000, MSBFIRST, SPI_MODE3)); 
   digitalWrite(CS, LOW);
   SPI.transfer(MLX75306_SM);
