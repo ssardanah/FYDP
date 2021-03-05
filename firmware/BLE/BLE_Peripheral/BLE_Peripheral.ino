@@ -50,7 +50,7 @@ void loop() {
   if (central) {
     Serial.print("Connected to central MAC: ");
     
-    // print the central's BlueToothe address:
+    // print the central's BlueTooth address:
     Serial.println(central.address());
     
     // turn on the LED to indicate the connection:

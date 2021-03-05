@@ -1,7 +1,10 @@
 #include <SPI.h>
 #include <ArduinoBLE.h>
 #include <Serial.h>
+#include <AD520X.h>
 
+// BLE defines
+#define peripheralName    "HaemoLuminate"
 
 //System Defines
 #define SYS_VOLT  5.0 
@@ -10,7 +13,7 @@
                     // Specify test command on line 132
 
 //Detection algorithm defines
-#define NUM_PIXELS                  143.0
+#define NUM_PIXELS                  142
 #define ATTENUATION_THRESH          0.75
 #define BLE_ACTIVE                  0
 #define PRESENCE_DETECTION_ACTIVE   1
@@ -19,11 +22,16 @@
 #define PIXEL_PITCH                 50  // micrometers
 
 // SPI Defines
-#define FrmRdyInt 9
-#define CS        4
-#define MOSI      11
-#define MISO      12
-#define SCK       13
+#define FrmRdyInt   9
+#define CS_SENSOR   4
+#define MOSI        11
+#define MISO        12
+#define SCK         13
+#define CS_POT      5
+#define POT_SHDN    255
+#define POT_RESET   255
+#define POT_DOUT    255
+#define POT_HW_CLK  255
 
 // Sensor Defines
 #define MLX75306_SPI_FRAME_SIZE 24 
@@ -76,11 +84,50 @@
 #define TZ12HI_MIN        140
 #define TZ12HI_MAX        240
 
-byte incomingByte = 1;
+// Potentiometer global variables
+//AD8400 pot = AD8400(CS_POT, POT_RESET, POT_SHDN, POT_DOUT, POT_HW_CLK);
+
+// BLE Variables 
+bool presence = false; 
+byte sizeVessel = 0.0; 
+bool newPresence; 
+byte newSizeVessel; 
+
+BLEService bloodVesselDetectionService("180C");  // User defined service
+BLEBooleanCharacteristic presenceCharacteristic("2A56", BLERead | BLENotify); // standard 16-bit characteristic UUIDm clients will only be able to read an be notified of an update this
+BLEByteCharacteristic sizeCharacteristic("2A57", BLERead | BLENotify);
 
 void setup() 
 {
+  if (BLE_ACTIVE == 1)
+  {
 
+
+    pinMode(LED_BUILTIN, OUTPUT); // initialize the built-in LED pin
+  
+    if (!BLE.begin()) {   // initialize BLE
+      Serial.println("starting BLE failed!");
+      while (1);
+    }
+    
+    BLE.setLocalName(peripheralName);  // Set name for connection
+    
+    BLE.setAdvertisedService(bloodVesselDetectionService); // Advertise service
+    
+    bloodVesselDetectionService.addCharacteristic(presenceCharacteristic); // Add 1st characteristic to service
+    bloodVesselDetectionService.addCharacteristic(sizeCharacteristic); // Add 2nd characteristic to service
+    BLE.addService(bloodVesselDetectionService); // Add service
+    
+    presenceCharacteristic.setValue(presence); // Set presence bool
+    sizeCharacteristic.setValue(sizeVessel); // Set vessel size double
+  
+    BLE.advertise();  // Start advertising
+    Serial.print("Peripheral device MAC: ");
+    Serial.println(BLE.address());
+    Serial.println("Waiting for connections...");
+  }
+ 
+  //pot.begin(0); 
   pinMode(5, OUTPUT); //LED control 
   // Setup serial monitor & SPI protocol
   Serial.begin(9600);
@@ -88,22 +135,19 @@ void setup()
   // SPI Settings: 
   // Max speed is 20MHz , used 14MHz
   // Clock is idle high (CPOL = 1). Data sampled at rising edge & shifted at falling edge (CPHA = 1).
-  // Therefore SPI mode = 3 
-
+  // Therefore SPI mode = 3
   SPI.beginTransaction(SPISettings(4000000, MSBFIRST, SPI_MODE3)); 
 
- 
-  
   pinMode(FrmRdyInt, INPUT);
-  pinMode(CS, OUTPUT);
+  pinMode(CS_SENSOR, OUTPUT);
   pinMode(7, OUTPUT); //onboard LED for debugging
 
   // Initialize sensor and sleep
-  digitalWrite(CS, LOW);
+  digitalWrite(CS_SENSOR, LOW);
   SPI.transfer(MLX75306_CR);
   SPI.transfer(MLX75306_NOP);
   SPI.transfer(MLX75306_NOP);
-  digitalWrite(CS, HIGH);
+  digitalWrite(CS_SENSOR, HIGH);
 
   // Start detection
   set_thresholds(THRESH_LOW,THRESH_HIGH);
@@ -116,14 +160,11 @@ void setup()
 
 void loop() 
 {
-  delay(1000);
   digitalWrite(5, HIGH); // turn LEDs on
   
   // Allocate memory for data
   uint8_t *sensorOutput = (uint8_t*)malloc(TX_LEN-12-2); // 8-bit ADC output, length excludes junk data
   uint8_t *sensorOutputAdd = sensorOutput;
-  bool vesselPresence = false;  
-  double vesselSize = 0.0;
   
   if (SYS_MODE == 1)
   {
@@ -135,29 +176,54 @@ void loop()
       Serial.print("| ");
       Serial.print("Raw Intensity: ");
       Serial.println(*(sensorOutput++));
-      
     }
-    
 
     if (PRESENCE_DETECTION_ACTIVE == 1)
       {
-        vesselPresence = detectPresence(sensorOutputAdd);
+        newPresence = detectPresence(sensorOutputAdd);
         Serial.print("| ");
         Serial.print("Vessel Presence: ");
-        Serial.println(vesselPresence);
+        Serial.println(newPresence);
       }
       
       if (SIZE_DETECTION_ACTIVE == 1)
       {
-        if (vesselPresence == false) vesselSize = 0.0; 
+        if (newPresence == false) newSizeVessel = 0.0; 
         else
         {
-           vesselSize = detectSize(sensorOutputAdd);
+           newSizeVessel = detectSize(sensorOutputAdd);
         }
         Serial.print("| ");
         Serial.print("Vessel Size: ");
-        Serial.println(vesselSize);
+        Serial.println(newSizeVessel);
       }
+
+      if (BLE_ACTIVE == 1) 
+      {
+        BLEDevice central = BLE.central();  // Wait for a BLE central to connect
+        // If a central is connected to the peripheral:
+        if (central) {
+          Serial.print("Connected to central MAC: ");
+          
+          // Print the central's BlueTooth address:
+          Serial.println(central.address());
+          
+          // Turn on the LED to indicate the connection:
+          digitalWrite(LED_BUILTIN, HIGH);
+           
+          while (central.connected()){
+            if ((newPresence!=presence) || (newSizeVessel!= sizeVessel))
+            {
+              presenceCharacteristic.setValue(newPresence); // Set presence bool
+              sizeCharacteristic.setValue(newSizeVessel); // Set vessel size double
+            } 
+          }
+          // when the central disconnects, turn off the LED:
+          digitalWrite(LED_BUILTIN, LOW);
+          Serial.print("Disconnected from central MAC: ");
+          Serial.println(central.address());
+      }
+    }
   }
   
   else if (SYS_MODE == 0)
@@ -169,15 +235,6 @@ void loop()
   
   free(sensorOutputAdd); 
   
-  // read the incoming byte:
-  //for printing into text file, to be used with python
-  incomingByte = Serial.read();
-
-  if(incomingByte == '0')
-  {
-    Serial.end(); 
-  }
-  
 }
 
 /** Set thresholds
@@ -188,17 +245,20 @@ void loop()
  */
 int set_thresholds(unsigned int low,unsigned int high){
   SPI.beginTransaction(SPISettings(4000000, MSBFIRST, SPI_MODE3)); 
-  digitalWrite(CS, LOW);
+  digitalWrite(CS_SENSOR, LOW);
   unsigned int thresholds = ((high << 4) && 0xF0) || (low && 0x0F);
   SPI.transfer(MLX75306_WT); 
   SPI.transfer(thresholds); 
   SPI.transfer(MLX75306_NOP); 
-  digitalWrite(CS, HIGH); 
+  digitalWrite(CS_SENSOR, HIGH); 
   SPI.endTransaction();
   
   if (thresholds == get_thresholds()) {
     return 0;
-  } else {
+  } 
+  
+  else 
+  {
     return 1;
   } 
 }
@@ -209,11 +269,11 @@ int set_thresholds(unsigned int low,unsigned int high){
  */
 unsigned int get_thresholds(){
   SPI.beginTransaction(SPISettings(4000000, MSBFIRST, SPI_MODE3)); 
-  digitalWrite(CS, LOW);
+  digitalWrite(CS_SENSOR, LOW);
   SPI.transfer(MLX75306_WT); 
   unsigned int thresholds = SPI.transfer(0x00);
   SPI.transfer(MLX75306_NOP);
-  digitalWrite(CS, HIGH);
+  digitalWrite(CS_SENSOR, HIGH);
   SPI.endTransaction();
 
   return thresholds;
@@ -223,11 +283,11 @@ unsigned int get_thresholds(){
  */
 void start(){
   SPI.beginTransaction(SPISettings(4000000, MSBFIRST, SPI_MODE3)); 
-  digitalWrite(CS, LOW);
+  digitalWrite(CS_SENSOR, LOW);
   SPI.transfer(MLX75306_WU);
   SPI.transfer(MLX75306_NOP);
   SPI.transfer(MLX75306_NOP);
-  digitalWrite(CS, HIGH);
+  digitalWrite(CS_SENSOR, HIGH);
   SPI.endTransaction();
 }
 
@@ -236,11 +296,11 @@ void start(){
  */
 void sensorSleep(){
   SPI.beginTransaction(SPISettings(4000000, MSBFIRST, SPI_MODE3)); 
-  digitalWrite(CS, LOW);
+  digitalWrite(CS_SENSOR, LOW);
   SPI.transfer(MLX75306_SM);
   SPI.transfer(MLX75306_NOP);
   SPI.transfer(MLX75306_NOP);
-  digitalWrite(CS, HIGH);
+  digitalWrite(CS_SENSOR, HIGH);
   SPI.endTransaction();
 }
 
@@ -250,20 +310,24 @@ void sensorSleep(){
 void set_acquire_8b(uint8_t *data){
   SPI.beginTransaction(SPISettings(4000000, MSBFIRST, SPI_MODE3)); 
   uint8_t test;
-  digitalWrite(CS, LOW);
+  digitalWrite(CS_SENSOR, LOW);
   SPI.transfer(MLX75306_SI);
   SPI.transfer(TIME_INT_MSB);
   SPI.transfer(TIME_INT_LSB);
-  digitalWrite(CS, HIGH);
+  digitalWrite(CS_SENSOR, HIGH);
 
   digitalWrite(13, LOW);
-  //DigitalOut led(LED1);
-  while(!digitalRead(FrmRdyInt)) {
-     digitalWrite(7, HIGH);
-  }
-  digitalWrite(7, LOW);
   
-  digitalWrite(CS, LOW);
+  while(!digitalRead(FrmRdyInt)) 
+  {
+     Serial.println("Message FG"); // Debug
+     digitalWrite(7, HIGH );
+  }
+  
+  Serial.println("Message FH"); //Debug
+  digitalWrite(7, LOW);
+
+  digitalWrite(CS_SENSOR, LOW);
   test = SPI.transfer(MLX75306_RO8);
   //Serial.println(test, BIN);
   test = SPI.transfer(START_PIXEL);
@@ -278,12 +342,13 @@ void set_acquire_8b(uint8_t *data){
   SPI.transfer(tx_buffer, TX_LEN);
 
   // 12 junk data at the begining and 2 at the end
-  for (int i = 12; i < (TX_LEN - 2); i++)
+  for (int i = 13; i < (TX_LEN - 4); i++)
   {
     data[i - 12] = tx_buffer[i];    
   } 
+  
   SPI.endTransaction();
-  digitalWrite(CS, HIGH);
+  digitalWrite(CS_SENSOR, HIGH);
 }
 
 /** Zebra Test channel
@@ -302,7 +367,7 @@ bool zebraTest(uint8_t command, uint8_t *data)
   uint8_t tx_buffer[TX_LEN] = {0x00}; 
 
   //Begin SPI
-  digitalWrite(CS, LOW);
+  digitalWrite(CS_SENSOR, LOW);
   SPI.transfer(command);
   SPI.transfer(MLX75306_NOP);
   SPI.transfer(MLX75306_NOP);
@@ -365,7 +430,7 @@ bool zebraTest(uint8_t command, uint8_t *data)
     }
    }
   SPI.endTransaction();
-  digitalWrite(CS, HIGH);
+  digitalWrite(CS_SENSOR, HIGH);
   return true;
 }
 
