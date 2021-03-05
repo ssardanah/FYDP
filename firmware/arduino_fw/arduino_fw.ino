@@ -15,7 +15,7 @@
 //Detection algorithm defines
 #define NUM_PIXELS                  142
 #define ATTENUATION_THRESH          0.75
-#define BLE_ACTIVE                  0
+#define BLE_ACTIVE                  1
 #define PRESENCE_DETECTION_ACTIVE   1
 #define SIZE_DETECTION_ACTIVE       0
 #define PIXEL_HEIGHT                100 // micrometers
@@ -103,8 +103,6 @@ void setup()
 {
   if (BLE_ACTIVE == 1)
   {
-
-
     pinMode(LED_BUILTIN, OUTPUT); // initialize the built-in LED pin
   
     if (!BLE.begin()) {   // initialize BLE
@@ -218,6 +216,38 @@ void loop()
             {
               presenceCharacteristic.setValue(newPresence); // Set presence bool
               sizeCharacteristic.setValue(newSizeVessel); // Set vessel size double
+              
+              set_acquire_8b(sensorOutput);
+              for (int i = 0; i <= (TX_LEN-12-2); i++)
+              {
+                Serial.print("Pixel Number: ");
+                Serial.print(i);
+                Serial.print("| ");
+                Serial.print("Raw Intensity: ");
+                Serial.println(*(sensorOutput++));
+              }
+          
+              if (PRESENCE_DETECTION_ACTIVE == 1)
+                {
+                  newPresence = detectPresence(sensorOutputAdd);
+                  Serial.print("| ");
+                  Serial.print("Vessel Presence: ");
+                  Serial.println(newPresence);
+                }
+                
+                if (SIZE_DETECTION_ACTIVE == 1)
+                {
+                  if (newPresence == false) newSizeVessel = 0.0; 
+                  else
+                  {
+                     newSizeVessel = detectSize(sensorOutputAdd);
+                  }
+                  Serial.print("| ");
+                  Serial.print("Vessel Size: ");
+                  Serial.println(newSizeVessel);
+                }
+              
+              
             } 
           }
           // when the central disconnects, turn off the LED:
