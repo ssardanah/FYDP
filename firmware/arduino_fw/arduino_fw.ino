@@ -91,11 +91,13 @@
 bool presence = false; 
 byte sizeVessel = 0.0; 
 bool newPresence; 
-byte newSizeVessel; 
-
+byte newSizeVessel;
+ 
+#ifdef BLE_ACTIVE == 1
 BLEService bloodVesselDetectionService("180C");  // User defined service
 BLEBooleanCharacteristic presenceCharacteristic("2A56", BLERead | BLENotify); // standard 16-bit characteristic UUIDm clients will only be able to read an be notified of an update this
 BLEByteCharacteristic sizeCharacteristic("2A57", BLERead | BLENotify);
+#endif
 
 void setup() 
 {
