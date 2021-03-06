@@ -15,7 +15,7 @@
 //Detection algorithm defines
 #define NUM_PIXELS                  142
 #define ATTENUATION_THRESH          0.75
-#define BLE_ACTIVE                  1
+#define BLE_ACTIVE                  0
 #define PRESENCE_DETECTION_ACTIVE   1
 #define SIZE_DETECTION_ACTIVE       0
 #define PIXEL_HEIGHT                100 // micrometers
@@ -85,7 +85,12 @@
 #define TZ12HI_MAX        240
 
 // Potentiometer global variables
-//AD8400 pot = AD8400(CS_POT, POT_RESET, POT_SHDN, POT_DOUT, POT_HW_CLK);
+#define POT_INCREMENT    1
+#define POT_INITIAL      128
+int potValue;
+int newPotValue;  
+bool dataNeedsAdjustement; 
+AD8400 pot = AD8400(CS_POT, POT_RESET, POT_SHDN, POT_DOUT, POT_HW_CLK);
 
 // BLE Variables 
 bool presence = false; 
@@ -126,8 +131,10 @@ void setup()
     Serial.println(BLE.address());
     Serial.println("Waiting for connections...");
   }
- 
-  //pot.begin(0); 
+
+  potValue = POT_INITIAL;
+  dataNeedsAdjustement = true; 
+  pot.begin(potValue); 
   pinMode(5, OUTPUT); //LED control 
   // Setup serial monitor & SPI protocol
   Serial.begin(9600);
@@ -140,6 +147,7 @@ void setup()
 
   pinMode(FrmRdyInt, INPUT);
   pinMode(CS_SENSOR, OUTPUT);
+  pinMode(CS_POT, OUTPUT);
   pinMode(7, OUTPUT); //onboard LED for debugging
 
   // Initialize sensor and sleep
@@ -168,7 +176,14 @@ void loop()
   
   if (SYS_MODE == 1)
   {
-    set_acquire_8b(sensorOutput);
+    if (dataNeedsAdjustement = false) set_acquire_8b(sensorOutput);
+    else
+    {
+      set_acquire_8b(sensorOutput);
+      dataNeedsAdjustement = adjustSaturation (sensorOutput); 
+    }
+    
+    
     for (int i = 0; i <= (TX_LEN-12-2); i++)
     {
       Serial.print("Pixel Number: ");
@@ -217,7 +232,12 @@ void loop()
               presenceCharacteristic.setValue(newPresence); // Set presence bool
               sizeCharacteristic.setValue(newSizeVessel); // Set vessel size double
               
-              set_acquire_8b(sensorOutput);
+              if (dataNeedsAdjustement = false) set_acquire_8b(sensorOutput);
+              else
+              {
+                set_acquire_8b(sensorOutput);
+                adjustSaturation (sensorOutput); 
+              }
               for (int i = 0; i <= (TX_LEN-12-2); i++)
               {
                 Serial.print("Pixel Number: ");
@@ -246,8 +266,6 @@ void loop()
                   Serial.print("Vessel Size: ");
                   Serial.println(newSizeVessel);
                 }
-              
-              
             } 
           }
           // when the central disconnects, turn off the LED:
@@ -515,4 +533,60 @@ double detectSize(uint8_t *data)
   pixelSize = numLowPixels * PIXEL_HEIGHT + (numLowPixels - 1) * PIXEL_PITCH;
 
   return pixelSize;
+}
+
+bool adjustSaturation (uint8_t *data)
+{ 
+  
+  int numOverSaturatedPixels = 0; 
+  uint8_t maxValue = 0; 
+  uint8_t first = 0; 
+  uint8_t second = 0;  
+  uint8_t third = 0;
+  
+  for (int i = 0; i < NUM_PIXELS; i++)
+  {
+    if (data[i] > 250 && data[i] <= 255) numOverSaturatedPixels++; 
+
+    // find the averaged max of the top three points
+    if (data[i] > first) {
+        third = second;
+        second = first;
+        first = data[i];
+    }
+    else if (data[i] > second) {
+        third = second;
+        second = data[i];
+    }
+
+    else if (data[i] > third)
+        third = data[i];
+  } 
+
+  maxValue = (first + second + third)/3;
+  
+  // if oversaturated
+  if (numOverSaturatedPixels > 0) 
+  {
+    newPotValue = potValue + POT_INCREMENT;  // increase resistance to decrease voltage
+    pot.setValue(0, newPotValue);
+    potValue = newPotValue; 
+    dataNeedsAdjustement = true; 
+  }
+  
+  // if undersaturated
+  if (maxValue < 245) 
+  {
+    newPotValue = potValue - POT_INCREMENT; // decrease resistance to increase voltage 
+    pot.setValue(0, newPotValue);
+    potValue = newPotValue;
+    dataNeedsAdjustement = true; 
+  }
+
+  // if in [245, 250] range
+  if (maxValue <= 245 && maxValue >= 250) 
+  {
+    dataNeedsAdjustement = false; 
+  }
+  return dataNeedsAdjustement; 
 }
