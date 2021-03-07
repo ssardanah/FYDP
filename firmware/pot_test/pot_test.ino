@@ -5,8 +5,7 @@
 #define POT_INITIAL     128
 #define CS_POT          5
 #define POT_ADDRESS     0x00
-#define UPPER_BYTE_MASK 0x3F
-#define LOWER_BYTE_MASK 0xC0
+#define UPPER_BYTE_MASK 0x03
 
 int potValue = 0;
 int newPotValue;  
@@ -14,6 +13,8 @@ bool dataNeedsAdjustement;
 
 
 void setup() {
+  
+  SPI.begin();
   pinMode(CS_POT, OUTPUT);
   
   //potValue = POT_INITIAL;
@@ -37,10 +38,9 @@ void loop() {
 
 void setPotValue (byte hexResistance)
 {
-  byte upperByte = (hexResistance >> 2) & UPPER_BYTE_MASK; 
-  byte lowerByte = (hexResistance << 6) & LOWER_BYTE_MASK; 
-  
-  SPI.begin();
+  byte upperByte = (hexResistance >> 6) & UPPER_BYTE_MASK; 
+  byte lowerByte = hexResistance; 
+
   SPI.beginTransaction(SPISettings(4000000, MSBFIRST, SPI_MODE1)); 
   digitalWrite(CS_POT, LOW);
   SPI.transfer(upperByte);
