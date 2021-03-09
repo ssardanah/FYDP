@@ -1,7 +1,6 @@
 #include <SPI.h>
 #include <ArduinoBLE.h>
 #include <Serial.h>
-#include <AD520X.h>
 
 // BLE defines
 #define peripheralName    "HaemoLuminate"
@@ -27,11 +26,7 @@
 #define MOSI        11
 #define MISO        12
 #define SCK         13
-#define CS_POT      5
-#define POT_SHDN    255
-#define POT_RESET   255
-#define POT_DOUT    255
-#define POT_HW_CLK  255
+#define CS_POT      6
 
 // Sensor Defines
 #define MLX75306_SPI_FRAME_SIZE 24 
@@ -85,12 +80,13 @@
 #define TZ12HI_MAX        240
 
 // Potentiometer global variables
-#define POT_INCREMENT    1
-#define POT_INITIAL      128
+#define POT_INCREMENT   1
+#define POT_INITIAL     0xFF
+#define POT_ADDRESS     0x00
 int potValue;
 int newPotValue;  
 bool dataNeedsAdjustement; 
-AD8400 pot = AD8400(CS_POT, POT_RESET, POT_SHDN, POT_DOUT, POT_HW_CLK);
+
 
 // BLE Variables 
 bool presence = false; 
@@ -131,10 +127,11 @@ void setup()
     Serial.println(BLE.address());
     Serial.println("Waiting for connections...");
   }
-
+  pinMode(CS_POT, OUTPUT);
   potValue = POT_INITIAL;
   dataNeedsAdjustement = true; 
-  pot.begin(potValue); 
+  
+ 
   pinMode(5, OUTPUT); //LED control 
   // Setup serial monitor & SPI protocol
   Serial.begin(9600);
@@ -568,8 +565,8 @@ bool adjustSaturation (uint8_t *data)
   // if oversaturated
   if (numOverSaturatedPixels > 0) 
   {
-    newPotValue = potValue + POT_INCREMENT;  // increase resistance to decrease voltage
-    pot.setValue(0, newPotValue);
+    newPotValue = potValue - POT_INCREMENT;  // decrease voltage
+    setPotValue(newPotValue);
     potValue = newPotValue; 
     dataNeedsAdjustement = true; 
   }
@@ -577,8 +574,8 @@ bool adjustSaturation (uint8_t *data)
   // if undersaturated
   if (maxValue < 245) 
   {
-    newPotValue = potValue - POT_INCREMENT; // decrease resistance to increase voltage 
-    pot.setValue(0, newPotValue);
+    newPotValue = potValue + POT_INCREMENT; // increase voltage 
+    setPotValue(newPotValue);
     potValue = newPotValue;
     dataNeedsAdjustement = true; 
   }
@@ -589,4 +586,16 @@ bool adjustSaturation (uint8_t *data)
     dataNeedsAdjustement = false; 
   }
   return dataNeedsAdjustement; 
+}
+
+void setPotValue (byte hexResistance)
+{
+  byte resistanceByte = hexResistance; 
+
+  SPI.beginTransaction(SPISettings(4000000, MSBFIRST, SPI_MODE1)); 
+  digitalWrite(CS_POT, LOW);
+  SPI.transfer(POT_ADDRESS);
+  SPI.transfer(resistanceByte);
+  digitalWrite(CS_POT, HIGH);
+  SPI.endTransaction();
 }

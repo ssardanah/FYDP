@@ -3,9 +3,8 @@
 // Potentiometer global variables
 #define POT_INCREMENT   1
 #define POT_INITIAL     128
-#define CS_POT          5
+#define CS_POT          6
 #define POT_ADDRESS     0x00
-#define UPPER_BYTE_MASK 0x03
 
 int potValue = 0;
 int newPotValue;  
@@ -17,34 +16,27 @@ void setup() {
   SPI.begin();
   pinMode(CS_POT, OUTPUT);
   
-  //potValue = POT_INITIAL;
-  //setPotValue(potValue);
-  //newPotValue = potValue + POT_INCREMENT; 
+  potValue = POT_INITIAL;
+  setPotValue(potValue);
+  newPotValue = potValue + POT_INCREMENT; 
 
 }
 
 void loop() {
-  /*delay (1000);
-  pot.setValue(0, newPotValue);
+  delay (1000);
+  setPotValue(newPotValue);
   potValue = newPotValue; 
-  newPotValue = potValue + POT_INCREMENT; */
-  
-  setPotValue(0x00);
-  delay (5000); 
-  setPotValue(0xFF); 
-  delay (5000); 
-
+  newPotValue = potValue + POT_INCREMENT;
 }
 
 void setPotValue (byte hexResistance)
 {
-  byte upperByte = (hexResistance >> 6) & UPPER_BYTE_MASK; 
-  byte lowerByte = hexResistance; 
+  byte resistanceByte = hexResistance; 
 
   SPI.beginTransaction(SPISettings(4000000, MSBFIRST, SPI_MODE1)); 
   digitalWrite(CS_POT, LOW);
-  SPI.transfer(upperByte);
-  SPI.transfer(lowerByte);
+  SPI.transfer(POT_ADDRESS);
+  SPI.transfer(resistanceByte);
   digitalWrite(CS_POT, HIGH);
   SPI.endTransaction();
 }
