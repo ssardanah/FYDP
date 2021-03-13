@@ -127,11 +127,6 @@ void loop()
       Serial.print("| ");
       Serial.print("Raw Intensity; ");
       Serial.println(*(sensorOutput++));
-      // Convert to volts (check notation) 
-      //*intensity = (*(sensorOutput++))/ (double)SYS_RES; 
-      //Serial.print(";");
-      //Serial.print("Percent Intensity: ");
-      //Serial.println(*(intensity++));
     }
     free(intensity);
   }
@@ -244,7 +239,7 @@ void set_acquire_8b(uint8_t *data){
      digitalWrite(7, HIGH);
   }
   digitalWrite(7, LOW);
-  
+
   digitalWrite(CS, LOW);
   test = SPI.transfer(MLX75306_RO8);
   //Serial.println(test, BIN);
