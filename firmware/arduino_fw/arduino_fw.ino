@@ -1,13 +1,11 @@
 #include <SPI.h>
 #include <ArduinoBLE.h>
-#include <Serial.h>
+#include "mbed.h"
 
 // BLE defines
 #define peripheralName    "HaemoLuminate"
 
 //System Defines
-#define SYS_VOLT  5.0 
-#define SYS_RES   (2^8)
 #define SYS_MODE  1 // 1 for sensing 0 for testing
                     // Specify test command on line 132
 
@@ -15,21 +13,20 @@
 #define NUM_PIXELS                  142
 #define ATTENUATION_THRESH          0.75
 #define BLE_ACTIVE                  0
-#define PRESENCE_DETECTION_ACTIVE   1
+#define PRESENCE_DETECTION_ACTIVE   0
 #define SIZE_DETECTION_ACTIVE       0
 #define PIXEL_HEIGHT                100 // micrometers
 #define PIXEL_PITCH                 50  // micrometers
 
 // SPI Defines
-#define FrmRdyInt   9
-#define CS_SENSOR   4
-#define MOSI        11
-#define MISO        12
-#define SCK         13
-#define CS_POT      6
-
+#define FRAME_READY        9
+#define CS_SENSOR          4
+#define CS_POT             6
+#define IR_LED             5
+#define DATA_STATUS_LED    7
+#define CLK_SPEED          4000000
 // Sensor Defines
-#define MLX75306_SPI_FRAME_SIZE 24 
+#define MLX75306_SPI_FRAME_SIZE 24
 
 #define MLX75306_NOP  0b0000000
 #define MLX75306_CR   0b11110000
@@ -51,9 +48,9 @@
 #define START_PIXEL   0x02
 #define END_PIXEL     0x8F
 
-
 //From datasheet N = (ending pixel - starting pixel) + 1 + 17
-#define TX_LEN        (143 - 2 + 1 + 17)
+#define TX_LEN        159
+#define NUM_PIXELS    144
 
 // Integration time 16 bits
 #define TIME_INT_MSB  0b01001110
@@ -83,7 +80,7 @@
 #define POT_INCREMENT   1
 #define POT_INITIAL     0xFF
 #define POT_ADDRESS     0x00
-int potValue;
+int potValue = POT_INITIAL;
 int newPotValue;  
 bool dataNeedsAdjustement; 
 
@@ -100,12 +97,30 @@ BLEBooleanCharacteristic presenceCharacteristic("2A56", BLERead | BLENotify); //
 BLEByteCharacteristic sizeCharacteristic("2A57", BLERead | BLENotify);
 #endif
 
+//IO defines for increased speed
+mbed::DigitalInOut SET_CS_SENSOR(digitalPinToPinName(CS_SENSOR));
+mbed::DigitalInOut READ_FRAME_READY(digitalPinToPinName(FRAME_READY));
+mbed::DigitalInOut SET_CS_POT(digitalPinToPinName(CS_POT));
+mbed::DigitalInOut SET_BUILTIN_LED(digitalPinToPinName(LED_BUILTIN));
+mbed::DigitalInOut SET_DATA_STATUS_LED(digitalPinToPinName(DATA_STATUS_LED));
+mbed::DigitalInOut SET_IR_LED(digitalPinToPinName(IR_LED));
+
 void setup() 
 {
+  Serial.begin(9600);
+  while(!Serial);
+
+  Serial.println("Start Setup");
+
+  SET_CS_SENSOR.output();
+  SET_CS_POT.output();
+  SET_IR_LED.output();
+  SET_BUILTIN_LED.output();
+  READ_FRAME_READY.input();
+  SET_DATA_STATUS_LED.output();
+  
   if (BLE_ACTIVE == 1)
   {
-    pinMode(LED_BUILTIN, OUTPUT); // initialize the built-in LED pin
-  
     if (!BLE.begin()) {   // initialize BLE
       Serial.println("starting BLE failed!");
       while (1);
@@ -127,161 +142,172 @@ void setup()
     Serial.println(BLE.address());
     Serial.println("Waiting for connections...");
   }
-  pinMode(CS_POT, OUTPUT);
-  potValue = POT_INITIAL;
   dataNeedsAdjustement = true; 
-  
  
-  pinMode(5, OUTPUT); //LED control 
-  // Setup serial monitor & SPI protocol
-  Serial.begin(9600);
+  // Setup SPI protocol
   SPI.begin();
   // SPI Settings: 
   // Max speed is 20MHz , used 14MHz
   // Clock is idle high (CPOL = 1). Data sampled at rising edge & shifted at falling edge (CPHA = 1).
   // Therefore SPI mode = 3
-  SPI.beginTransaction(SPISettings(4000000, MSBFIRST, SPI_MODE3)); 
-
-  pinMode(FrmRdyInt, INPUT);
-  pinMode(CS_SENSOR, OUTPUT);
-  pinMode(CS_POT, OUTPUT);
-  pinMode(7, OUTPUT); //onboard LED for debugging
+  SPI.beginTransaction(SPISettings(CLK_SPEED, MSBFIRST, SPI_MODE3)); 
 
   // Initialize sensor and sleep
-  digitalWrite(CS_SENSOR, LOW);
+  SET_CS_SENSOR = LOW;
   SPI.transfer(MLX75306_CR);
   SPI.transfer(MLX75306_NOP);
   SPI.transfer(MLX75306_NOP);
-  digitalWrite(CS_SENSOR, HIGH);
-
-  // Start detection
-  set_thresholds(THRESH_LOW,THRESH_HIGH);
-  start(); 
+  SET_CS_SENSOR = HIGH;
+  SPI.endTransaction();
 
   // Give sensor time to setup
-  delay(100);
-
+  delay(1000);
+  
+  // Start detection
+  set_thresholds(THRESH_LOW,THRESH_HIGH);
+  start();  
 }
 
 void loop() 
 {
-  digitalWrite(5, HIGH); // turn LEDs on
+  SET_IR_LED = HIGH; // turn LEDs on
   
   // Allocate memory for data
-  uint8_t *sensorOutput = (uint8_t*)malloc(TX_LEN-12-2); // 8-bit ADC output, length excludes junk data
-  uint8_t *sensorOutputAdd = sensorOutput;
+  uint8_t* sensorOutput = (uint8_t*)malloc(NUM_PIXELS); // 8-bit ADC output, length excludes junk data
+  uint8_t* sensorOutputAdd = sensorOutput;
   
   if (SYS_MODE == 1)
   {
-    if (dataNeedsAdjustement = false) set_acquire_8b(sensorOutput);
-    else
-    {
-      set_acquire_8b(sensorOutput);
-      dataNeedsAdjustement = adjustSaturation (sensorOutput); 
-    }
+    set_acquire_8b(sensorOutputAdd);
+//    if (dataNeedsAdjustement)
+//    { 
+//      set_acquire_8b(sensorOutputAdd);
+//      dataNeedsAdjustement = adjustSaturation(sensorOutputAdd); 
+//    }
     
     
-    for (int i = 0; i <= (TX_LEN-12-2); i++)
+    for (int i = 1; i < NUM_PIXELS-1; i++)
     {
       Serial.print("Pixel Number: ");
       Serial.print(i);
       Serial.print("| ");
       Serial.print("Raw Intensity: ");
-      Serial.println(*(sensorOutput++));
+      Serial.println(sensorOutput[i]);
     }
 
     if (PRESENCE_DETECTION_ACTIVE == 1)
-      {
-        newPresence = detectPresence(sensorOutputAdd);
-        Serial.print("| ");
-        Serial.print("Vessel Presence: ");
-        Serial.println(newPresence);
-      }
+    {
+      newPresence = detectPresence(sensorOutputAdd);
+      Serial.print("| ");
+      Serial.print("Vessel Presence: ");
+      Serial.println(newPresence);
+    }
       
-      if (SIZE_DETECTION_ACTIVE == 1)
+    if (SIZE_DETECTION_ACTIVE == 1)
+    {
+      if (newPresence == false) 
       {
-        if (newPresence == false) newSizeVessel = 0.0; 
-        else
-        {
-           newSizeVessel = detectSize(sensorOutputAdd);
-        }
-        Serial.print("| ");
-        Serial.print("Vessel Size: ");
-        Serial.println(newSizeVessel);
+        newSizeVessel = 0.0; 
       }
-
-      if (BLE_ACTIVE == 1) 
+      else
       {
-        BLEDevice central = BLE.central();  // Wait for a BLE central to connect
-        // If a central is connected to the peripheral:
-        if (central) {
-          Serial.print("Connected to central MAC: ");
-          
-          // Print the central's BlueTooth address:
-          Serial.println(central.address());
-          
-          // Turn on the LED to indicate the connection:
-          digitalWrite(LED_BUILTIN, HIGH);
-           
-          while (central.connected()){
-            if ((newPresence!=presence) || (newSizeVessel!= sizeVessel))
+         newSizeVessel = detectSize(sensorOutputAdd);
+      }
+      Serial.print("| ");
+      Serial.print("Vessel Size: ");
+      Serial.println(newSizeVessel);
+    }
+
+    if (BLE_ACTIVE == 1) 
+    {
+      BLEDevice central = BLE.central();  // Wait for a BLE central to connect
+      // If a central is connected to the peripheral:
+      if (central) 
+      {
+        Serial.print("Connected to central MAC: ");
+        
+        // Print the central's BlueTooth address:
+        Serial.println(central.address());
+        
+        // Turn on the LED to indicate the connection:
+        SET_BUILTIN_LED = HIGH;
+         
+        while (central.connected())
+        {
+          if ((newPresence!=presence) || (newSizeVessel!= sizeVessel))
+          {
+            presenceCharacteristic.setValue(newPresence); // Set presence bool
+            sizeCharacteristic.setValue(newSizeVessel); // Set vessel size double
+            
+            if (dataNeedsAdjustement = false) 
             {
-              presenceCharacteristic.setValue(newPresence); // Set presence bool
-              sizeCharacteristic.setValue(newSizeVessel); // Set vessel size double
-              
-              if (dataNeedsAdjustement = false) set_acquire_8b(sensorOutput);
-              else
+              set_acquire_8b(sensorOutputAdd);
+            }
+            else
+            {
+              set_acquire_8b(sensorOutputAdd);
+              adjustSaturation(sensorOutputAdd); 
+            }
+            for (int i = 0; i < NUM_PIXELS; i++)
+            {
+              Serial.print("Pixel Number: ");
+              Serial.print(i);
+              Serial.print("| ");
+              Serial.print("Raw Intensity: ");
+              Serial.println(sensorOutputAdd[i]);
+            }
+        
+            if (PRESENCE_DETECTION_ACTIVE == 1)
               {
-                set_acquire_8b(sensorOutput);
-                adjustSaturation (sensorOutput); 
-              }
-              for (int i = 0; i <= (TX_LEN-12-2); i++)
-              {
-                Serial.print("Pixel Number: ");
-                Serial.print(i);
+                newPresence = detectPresence(sensorOutputAdd);
                 Serial.print("| ");
-                Serial.print("Raw Intensity: ");
-                Serial.println(*(sensorOutput++));
+                Serial.print("Vessel Presence: ");
+                Serial.println(newPresence);
               }
-          
-              if (PRESENCE_DETECTION_ACTIVE == 1)
+              
+              if (SIZE_DETECTION_ACTIVE == 1)
+              {
+                if (newPresence == false) 
                 {
-                  newPresence = detectPresence(sensorOutputAdd);
-                  Serial.print("| ");
-                  Serial.print("Vessel Presence: ");
-                  Serial.println(newPresence);
+                  newSizeVessel = 0.0; 
                 }
-                
-                if (SIZE_DETECTION_ACTIVE == 1)
+                else
                 {
-                  if (newPresence == false) newSizeVessel = 0.0; 
-                  else
-                  {
-                     newSizeVessel = detectSize(sensorOutputAdd);
-                  }
-                  Serial.print("| ");
-                  Serial.print("Vessel Size: ");
-                  Serial.println(newSizeVessel);
+                   newSizeVessel = detectSize(sensorOutputAdd);
                 }
-            } 
-          }
-          // when the central disconnects, turn off the LED:
-          digitalWrite(LED_BUILTIN, LOW);
-          Serial.print("Disconnected from central MAC: ");
-          Serial.println(central.address());
+                Serial.print("| ");
+                Serial.print("Vessel Size: ");
+                Serial.println(newSizeVessel);
+              }
+          } 
+        }
+        // when the central disconnects, turn off the LED:
+        SET_BUILTIN_LED = LOW;
+        Serial.print("Disconnected from central MAC: ");
+        Serial.println(central.address());
       }
     }
   }
   
   else if (SYS_MODE == 0)
   {
-    bool result = zebraTest(MLX75306_TZ0,sensorOutput);
-    if (result == 1) Serial.println("Test Passed");
-    else if (result == 0) Serial.println("Test Failed");
+      bool result = zebraTest(MLX75306_TZ0,sensorOutputAdd);
+      if (result == 1)
+      {
+      	Serial.println("Test Passed");
+      }
+      else if (result == 0)
+      {
+      	Serial.println("Test Failed");
+      }
   }
-  
-  free(sensorOutputAdd); 
-  
+
+  else if (SYS_MODE == 2)
+  {
+    set_acquire_8b(sensorOutputAdd);
+    Serial.println("Acquired Values");
+  }  
+  free(sensorOutput);
 }
 
 /** Set thresholds
@@ -291,23 +317,22 @@ void loop()
  * @return 0 if the operation succeed, 1 if not.
  */
 int set_thresholds(unsigned int low,unsigned int high){
-  SPI.beginTransaction(SPISettings(4000000, MSBFIRST, SPI_MODE3)); 
-  digitalWrite(CS_SENSOR, LOW);
+  SPI.beginTransaction(SPISettings(CLK_SPEED, MSBFIRST, SPI_MODE3)); 
+  SET_CS_SENSOR = LOW;
   unsigned int thresholds = ((high << 4) && 0xF0) || (low && 0x0F);
   SPI.transfer(MLX75306_WT); 
   SPI.transfer(thresholds); 
   SPI.transfer(MLX75306_NOP); 
-  digitalWrite(CS_SENSOR, HIGH); 
+  SET_CS_SENSOR = HIGH; 
   SPI.endTransaction();
   
-  if (thresholds == get_thresholds()) {
-    return 0;
-  } 
-  
-  else 
-  {
-    return 1;
-  } 
+//  if (thresholds == get_thresholds()) {
+//    return 0;
+//  } 
+//  else 
+//  {
+//    return 1;
+//  } 
 }
 
 /** Get thresholds
@@ -315,12 +340,12 @@ int set_thresholds(unsigned int low,unsigned int high){
  * (RT) command after a WT command or before a SI command. 
  */
 unsigned int get_thresholds(){
-  SPI.beginTransaction(SPISettings(4000000, MSBFIRST, SPI_MODE3)); 
-  digitalWrite(CS_SENSOR, LOW);
+  SPI.beginTransaction(SPISettings(CLK_SPEED, MSBFIRST, SPI_MODE3)); 
+  SET_CS_SENSOR = LOW;
   SPI.transfer(MLX75306_WT); 
   unsigned int thresholds = SPI.transfer(0x00);
   SPI.transfer(MLX75306_NOP);
-  digitalWrite(CS_SENSOR, HIGH);
+  SET_CS_SENSOR = HIGH;
   SPI.endTransaction();
 
   return thresholds;
@@ -329,12 +354,12 @@ unsigned int get_thresholds(){
  * Wake up sensor and begin operation 
  */
 void start(){
-  SPI.beginTransaction(SPISettings(4000000, MSBFIRST, SPI_MODE3)); 
-  digitalWrite(CS_SENSOR, LOW);
+  SPI.beginTransaction(SPISettings(CLK_SPEED, MSBFIRST, SPI_MODE3)); 
+  SET_CS_SENSOR = LOW;
   SPI.transfer(MLX75306_WU);
   SPI.transfer(MLX75306_NOP);
   SPI.transfer(MLX75306_NOP);
-  digitalWrite(CS_SENSOR, HIGH);
+  SET_CS_SENSOR = HIGH;
   SPI.endTransaction();
 }
 
@@ -342,12 +367,12 @@ void start(){
  * Put sensor in low-power sleep mode 
  */
 void sensorSleep(){
-  SPI.beginTransaction(SPISettings(4000000, MSBFIRST, SPI_MODE3)); 
-  digitalWrite(CS_SENSOR, LOW);
+  SPI.beginTransaction(SPISettings(CLK_SPEED, MSBFIRST, SPI_MODE3)); 
+  SET_CS_SENSOR = LOW;
   SPI.transfer(MLX75306_SM);
   SPI.transfer(MLX75306_NOP);
   SPI.transfer(MLX75306_NOP);
-  digitalWrite(CS_SENSOR, HIGH);
+  SET_CS_SENSOR = HIGH;
   SPI.endTransaction();
 }
 
@@ -355,47 +380,43 @@ void sensorSleep(){
  * get 8-bit sensor ADC output 
  */
 void set_acquire_8b(uint8_t *data){
-  SPI.beginTransaction(SPISettings(4000000, MSBFIRST, SPI_MODE3)); 
-  uint8_t test;
-  digitalWrite(CS_SENSOR, LOW);
+  //creating buffer of 0s of tx_length
+  uint8_t* tx_buffer = (uint8_t*)malloc(NUM_PIXELS + 3);
+  
+  SPI.beginTransaction(SPISettings(CLK_SPEED, MSBFIRST, SPI_MODE3)); 
+  SET_CS_SENSOR = LOW;
   SPI.transfer(MLX75306_SI);
   SPI.transfer(TIME_INT_MSB);
   SPI.transfer(TIME_INT_LSB);
-  digitalWrite(CS_SENSOR, HIGH);
+  SET_CS_SENSOR = HIGH;
+  SPI.endTransaction();
 
-  digitalWrite(13, LOW);
-  
-  while(!digitalRead(FrmRdyInt)) 
+  SET_DATA_STATUS_LED = HIGH;
+  while(!READ_FRAME_READY);
+
+  SPI.beginTransaction(SPISettings(CLK_SPEED, MSBFIRST, SPI_MODE3)); 
+  SET_CS_SENSOR = LOW;
+  SPI.transfer(MLX75306_RO8); //Sanity Byte is returned here
+  SPI.transfer(START_PIXEL);  //Previous Control1 Byte is returned here
+  SPI.transfer(END_PIXEL);    //Previous Control2 Byte is returned here
+
+  for(int i = 0; i < 9 ; i++)
   {
-     Serial.println("Message FG"); // Debug
-     digitalWrite(7, HIGH );
+    SPI.transfer(MLX75306_NOP);
   }
   
-  Serial.println("Message FH"); //Debug
-  digitalWrite(7, LOW);
-
-  digitalWrite(CS_SENSOR, LOW);
-  test = SPI.transfer(MLX75306_RO8);
-  //Serial.println(test, BIN);
-  test = SPI.transfer(START_PIXEL);
-  //Serial.println(test, BIN);
-  test = SPI.transfer(END_PIXEL);
-  //Serial.println(test, BIN);
-  
-  //creating buffer of 0s of tx_length
-  uint8_t tx_buffer[TX_LEN] = {0x00}; 
-  // The received data is stored in the tx_buffer in-place 
-  // (the old data is replaced with the data received).
-  SPI.transfer(tx_buffer, TX_LEN);
-
-  // 12 junk data at the begining and 2 at the end
-  for (int i = 13; i < (TX_LEN - 4); i++)
-  {
-    data[i - 12] = tx_buffer[i];    
-  } 
+  SPI.transfer((void*)tx_buffer, NUM_PIXELS + 3); 
   
   SPI.endTransaction();
-  digitalWrite(CS_SENSOR, HIGH);
+  SET_CS_SENSOR = HIGH;
+  // 12 junk data at the begining and 3 at the end
+  for (int i = 0; i < NUM_PIXELS; i++)   
+  {
+    data[i] = tx_buffer[i];    
+  } 
+  
+  SET_DATA_STATUS_LED = LOW;
+  free(tx_buffer);
 }
 
 /** Zebra Test channel
@@ -410,11 +431,11 @@ void set_acquire_8b(uint8_t *data){
 bool zebraTest(uint8_t command, uint8_t *data)
 {
   //creating buffer of 0s of tx_length
-  SPI.beginTransaction(SPISettings(4000000, MSBFIRST, SPI_MODE3)); 
+  SPI.beginTransaction(SPISettings(CLK_SPEED, MSBFIRST, SPI_MODE3)); 
   uint8_t tx_buffer[TX_LEN] = {0x00}; 
 
   //Begin SPI
-  digitalWrite(CS_SENSOR, LOW);
+  SET_CS_SENSOR = LOW;
   SPI.transfer(command);
   SPI.transfer(MLX75306_NOP);
   SPI.transfer(MLX75306_NOP);
@@ -423,8 +444,11 @@ bool zebraTest(uint8_t command, uint8_t *data)
   // (the old data is replaced with the data received).
   //SPI.transfer(tx_buffer, TX_LEN);
   SPI.endTransaction();
+  SET_CS_SENSOR = HIGH;
+
   set_acquire_8b(data);
-  SPI.beginTransaction(SPISettings(4000000, MSBFIRST, SPI_MODE3)); 
+  SPI.beginTransaction(SPISettings(CLK_SPEED, MSBFIRST, SPI_MODE3)); 
+  SET_CS_SENSOR = LOW;
   // 12 junk data at the begining and 2 at the end
   
   for (int i=0; i < sizeof(data); i++)
@@ -477,7 +501,7 @@ bool zebraTest(uint8_t command, uint8_t *data)
     }
    }
   SPI.endTransaction();
-  digitalWrite(CS_SENSOR, HIGH);
+ SET_CS_SENSOR = HIGH;
   return true;
 }
 
@@ -532,7 +556,7 @@ double detectSize(uint8_t *data)
   return pixelSize;
 }
 
-bool adjustSaturation (uint8_t *data)
+bool adjustSaturation(uint8_t *data)
 { 
   
   int numOverSaturatedPixels = 0; 
@@ -592,10 +616,10 @@ void setPotValue (byte hexResistance)
 {
   byte resistanceByte = hexResistance; 
 
-  SPI.beginTransaction(SPISettings(4000000, MSBFIRST, SPI_MODE1)); 
-  digitalWrite(CS_POT, LOW);
+  SPI.beginTransaction(SPISettings(CLK_SPEED, MSBFIRST, SPI_MODE1)); 
+  SET_CS_POT = LOW;
   SPI.transfer(POT_ADDRESS);
   SPI.transfer(resistanceByte);
-  digitalWrite(CS_POT, HIGH);
+  SET_CS_POT = HIGH;
   SPI.endTransaction();
 }
