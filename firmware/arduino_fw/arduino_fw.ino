@@ -361,14 +361,12 @@ void set_acquire_8b(uint8_t *data){
   
   while(!digitalRead(FrmRdyInt)) 
   {
-     Serial.println("Message FG"); // Debug
      digitalWrite(7, HIGH );
   }
-  
-  Serial.println("Message FH"); //Debug
   digitalWrite(7, LOW);
 
   digitalWrite(CS_SENSOR, LOW);
+
   test = SPI.transfer(MLX75306_RO8);
   //Serial.println(test, BIN);
   test = SPI.transfer(START_PIXEL);
