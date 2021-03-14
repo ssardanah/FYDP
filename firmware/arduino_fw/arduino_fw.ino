@@ -159,9 +159,9 @@ void setup()
   SPI.transfer(MLX75306_NOP);
   SET_CS_SENSOR = HIGH;
   SPI.endTransaction();
-
+  
   // Give sensor time to setup
-  delay(1000);
+  delay(2000);
   
   // Start detection
   set_thresholds(THRESH_LOW,THRESH_HIGH);
@@ -417,6 +417,13 @@ void set_acquire_8b(uint8_t *data){
   
   SET_DATA_STATUS_LED = LOW;
   free(tx_buffer);
+
+  SET_CS_SENSOR = LOW;
+  SPI.transfer(MLX75306_CR);
+  SPI.transfer(MLX75306_NOP);
+  SPI.transfer(MLX75306_NOP);
+  SET_CS_SENSOR = HIGH;
+  SPI.endTransaction();
 }
 
 /** Zebra Test channel
