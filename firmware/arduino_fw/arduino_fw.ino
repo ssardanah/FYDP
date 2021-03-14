@@ -19,8 +19,8 @@
 
 // SPI Defines
 #define FRAME_READY        9
-#define CS_SENSOR          4 // change to 6
-#define CS_POT             6 // change to 4
+#define CS_SENSOR          6 
+#define CS_POT             4 
 #define MOSI               11
 #define MISO               12
 #define SCK                13
@@ -172,7 +172,7 @@ void setup()
   SPI.endTransaction();
 
   // Give sensor time to setup
-  delay(1000);
+  delay(2000);
   
   // Start detection
   set_thresholds(THRESH_LOW,THRESH_HIGH);
@@ -287,7 +287,7 @@ void loop()
   free(sensorOutputAdd); 
   // read the incoming byte:
   //for printing into text file, to be used with python
-  byte incomingByte = Serial.read();
+  /*byte incomingByte = Serial.read();
 
   if(incomingByte == '0')
   {
@@ -301,6 +301,7 @@ void loop()
       	Serial.println("Test Failed");
       }
   }
+  */
 
 }
 
@@ -409,6 +410,13 @@ void set_acquire_8b(uint8_t *data){
   
   SET_DATA_STATUS_LED = LOW;
   free(tx_buffer);
+
+  SET_CS_SENSOR = LOW;
+  SPI.transfer(MLX75306_CR);
+  SPI.transfer(MLX75306_NOP);
+  SPI.transfer(MLX75306_NOP);
+  SET_CS_SENSOR = HIGH;
+  SPI.endTransaction();
 }
 
 /** Zebra Test channel
