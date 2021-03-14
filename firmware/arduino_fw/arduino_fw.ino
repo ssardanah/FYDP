@@ -240,6 +240,8 @@ void loop()
         {
           presenceCharacteristic.setValue(newPresence); // Set presence bool
           temperatureCharacteristic.setValue(temperatureOutput); // Set Temperature byte
+          presence = newPresence;
+          temperature = newTemperature; 
         }
           
         if (dataNeedsAdjustement = false) set_acquire_8b(sensorOutput);
