@@ -6,13 +6,11 @@
 #define peripheralName    "HaemoLuminate"
 
 //System Defines
-#define SYS_MODE  1 // 1 for sensing 0 for testing
+#define SYS_MODE  2 // 2 for BLE 1 for sensing 0 for testing
                     // Specify test command on line 132
 
-
-#define BLE_ACTIVE                    0
 #define PRESENCE_DETECTION_ACTIVE     1
-#define TEMPERATURE_DETECTION_ACTIVE  0
+#define TEMPERATURE_DETECTION_ACTIVE  1
 #define PIXEL_HEIGHT                  100 // micrometers
 #define PIXEL_PITCH                   50  // micrometers
 #define PRESENCE_DETECTION_ACTIVE     0
@@ -94,7 +92,7 @@ byte temperature = 0.0;
 bool newPresence; 
 byte newTemperature;
  
-#ifdef BLE_ACTIVE == 1
+#ifdef SYS_MODE == 1
 BLEService bloodVesselDetectionService("0000180C-0000-1000-8000-00805F9B34FB");  // User defined service
 BLEBooleanCharacteristic presenceCharacteristic("00002866-0000-1000-8000-00805F9B34FB", BLERead); // standard 16-bit characteristic UUIDm clients will only be able to read an be notified of an update this
 BLEDoubleCharacteristic temperatureCharacteristic("00002867-0000-1000-8000-00805F9B34FB", BLERead); // standard 16-bit characteristic UUIDm clients will only be able to read an be notified of an update this
@@ -122,7 +120,7 @@ void setup()
   READ_FRAME_READY.input();
   SET_DATA_STATUS_LED.output();
   
-  if (BLE_ACTIVE == 1)
+  if (SYS_MODE == 2)
   {
     if (!BLE.begin()) {   // initialize BLE
       Serial.println("starting BLE failed!");
@@ -215,66 +213,66 @@ void loop()
       Serial.print("Temperature: ");
       Serial.println(temperatureOutput);
     }
-
-    if (BLE_ACTIVE == 1) 
+  }
+  
+  if (SYS_MODE == 2) 
+  {
+    BLEDevice central = BLE.central();  // Wait for a BLE central to connect
+    // If a central is connected to the peripheral:
+    if (central) 
     {
-      BLEDevice central = BLE.central();  // Wait for a BLE central to connect
-      // If a central is connected to the peripheral:
-      if (central) 
-      {
-        Serial.print("Connected to central MAC: ");
-        
-        // Print the central's BlueTooth address:
-        Serial.println(central.address());
-        
-        // Turn on the LED to indicate the connection:
-        digitalWrite(LED_BUILTIN, HIGH);
-         
-        while (central.connected()){
-          if ((newPresence!=presence) || (temperatureOutput!= temperature))
-          {
-            presenceCharacteristic.setValue(newPresence); // Set presence bool
-            temperatureCharacteristic.setValue(temperatureOutput); // Set Temperature byte
-          }
-            
-          if (dataNeedsAdjustement = false) set_acquire_8b(sensorOutput);
-          else
-          {
-            set_acquire_8b(sensorOutput);
-            adjustSaturation (sensorOutput); 
-          }
-          
-          for (int i = 0; i <= (TX_LEN-12-2); i++)
-          {
-            Serial.print("Pixel Number: ");
-            Serial.print(i);
-            Serial.print("| ");
-            Serial.print("Raw Intensity: ");
-            Serial.println(sensorOutputAdd[i]);
-          }
-    
-          if (PRESENCE_DETECTION_ACTIVE == 1)
-          {
-            newPresence = detectPresence(sensorOutputAdd);
-            Serial.print("| ");
-            Serial.print("Vessel Presence: ");
-            Serial.println(newPresence);
-          }
-            
-          if (TEMPERATURE_DETECTION_ACTIVE == 1)
-          {
-            temperatureOutput = getTemperatureReading(newTemperature);
-            Serial.print("| ");
-            Serial.print("Temperature: ");
-            Serial.println(temperatureOutput);
-          }      
-        } 
+      Serial.print("Connected to central MAC: ");
       
-        // when the central disconnects, turn off the LED:
-        SET_BUILTIN_LED = LOW;
-        Serial.print("Disconnected from central MAC: ");
-        Serial.println(central.address());
-      }
+      // Print the central's BlueTooth address:
+      Serial.println(central.address());
+      
+      // Turn on the LED to indicate the connection:
+      digitalWrite(LED_BUILTIN, HIGH);
+       
+      while (central.connected()){
+        if ((newPresence!=presence) || (temperatureOutput!= temperature))
+        {
+          presenceCharacteristic.setValue(newPresence); // Set presence bool
+          temperatureCharacteristic.setValue(temperatureOutput); // Set Temperature byte
+        }
+          
+        if (dataNeedsAdjustement = false) set_acquire_8b(sensorOutput);
+        else
+        {
+          set_acquire_8b(sensorOutput);
+          adjustSaturation (sensorOutput); 
+        }
+        
+        for (int i = 0; i <= (TX_LEN-12-2); i++)
+        {
+          Serial.print("Pixel Number: ");
+          Serial.print(i);
+          Serial.print("| ");
+          Serial.print("Raw Intensity: ");
+          Serial.println(sensorOutputAdd[i]);
+        }
+  
+        if (PRESENCE_DETECTION_ACTIVE == 1)
+        {
+          newPresence = detectPresence(sensorOutputAdd);
+          Serial.print("| ");
+          Serial.print("Vessel Presence: ");
+          Serial.println(newPresence);
+        }
+          
+        if (TEMPERATURE_DETECTION_ACTIVE == 1)
+        {
+          temperatureOutput = getTemperatureReading(newTemperature);
+          Serial.print("| ");
+          Serial.print("Temperature: ");
+          Serial.println(temperatureOutput);
+        }      
+      } 
+    
+      // when the central disconnects, turn off the LED:
+      SET_BUILTIN_LED = LOW;
+      Serial.print("Disconnected from central MAC: ");
+      Serial.println(central.address());
     }
   }
   else if (SYS_MODE == 0)
