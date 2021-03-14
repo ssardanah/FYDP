@@ -16,7 +16,7 @@
 #define ATTENUATION_THRESH          0.75
 #define BLE_ACTIVE                  0
 #define PRESENCE_DETECTION_ACTIVE   1
-#define SIZE_DETECTION_ACTIVE       0
+#define TEMPERATURE_DETECTION_ACTIVE       0
 #define PIXEL_HEIGHT                100 // micrometers
 #define PIXEL_PITCH                 50  // micrometers
 
@@ -81,7 +81,7 @@
 
 // Potentiometer global variables
 #define POT_INCREMENT   1
-#define POT_INITIAL     0xFF
+#define POT_INITIAL     0x55
 #define POT_ADDRESS     0x00
 int potValue;
 int newPotValue;  
@@ -90,14 +90,14 @@ bool dataNeedsAdjustement;
 
 // BLE Variables 
 bool presence = false; 
-byte sizeVessel = 0.0; 
+byte temperature = 0.0; 
 bool newPresence; 
-byte newSizeVessel;
+byte newTemperature;
  
 #ifdef BLE_ACTIVE == 1
-BLEService bloodVesselDetectionService("180C");  // User defined service
-BLEBooleanCharacteristic presenceCharacteristic("2A56", BLERead | BLENotify); // standard 16-bit characteristic UUIDm clients will only be able to read an be notified of an update this
-BLEByteCharacteristic sizeCharacteristic("2A57", BLERead | BLENotify);
+BLEService bloodVesselDetectionService("0000180C-0000-1000-8000-00805F9B34FB");  // User defined service
+BLEBooleanCharacteristic presenceCharacteristic("00002866-0000-1000-8000-00805F9B34FB", BLERead); // standard 16-bit characteristic UUIDm clients will only be able to read an be notified of an update this
+BLEByteCharacteristic temperatureCharacteristic("00002867-0000-1000-8000-00805F9B34FB", BLERead); // standard 16-bit characteristic UUIDm clients will only be able to read an be notified of an update this
 #endif
 
 void setup() 
@@ -116,22 +116,24 @@ void setup()
     BLE.setAdvertisedService(bloodVesselDetectionService); // Advertise service
     
     bloodVesselDetectionService.addCharacteristic(presenceCharacteristic); // Add 1st characteristic to service
-    bloodVesselDetectionService.addCharacteristic(sizeCharacteristic); // Add 2nd characteristic to service
+    bloodVesselDetectionService.addCharacteristic(temperatureCharacteristic); // Add 1st characteristic to service
     BLE.addService(bloodVesselDetectionService); // Add service
     
     presenceCharacteristic.setValue(presence); // Set presence bool
-    sizeCharacteristic.setValue(sizeVessel); // Set vessel size double
+    temperatureCharacteristic.setValue(temperature); // Set vessel size double
   
     BLE.advertise();  // Start advertising
     Serial.print("Peripheral device MAC: ");
     Serial.println(BLE.address());
     Serial.println("Waiting for connections...");
   }
+
+  BLE.advertise(); 
+  
   pinMode(CS_POT, OUTPUT);
   potValue = POT_INITIAL;
   dataNeedsAdjustement = true; 
   
- 
   pinMode(5, OUTPUT); //LED control 
   // Setup serial monitor & SPI protocol
   Serial.begin(9600);
@@ -198,16 +200,12 @@ void loop()
         Serial.println(newPresence);
       }
       
-      if (SIZE_DETECTION_ACTIVE == 1)
+      if (TEMPERATURE_DETECTION_ACTIVE == 1)
       {
-        if (newPresence == false) newSizeVessel = 0.0; 
-        else
-        {
-           newSizeVessel = detectSize(sensorOutputAdd);
-        }
+        newTemperature; // = steph's temp stuff;
         Serial.print("| ");
-        Serial.print("Vessel Size: ");
-        Serial.println(newSizeVessel);
+        Serial.print("Temperature: ");
+        Serial.println(newTemperature);
       }
 
       if (BLE_ACTIVE == 1) 
@@ -224,10 +222,10 @@ void loop()
           digitalWrite(LED_BUILTIN, HIGH);
            
           while (central.connected()){
-            if ((newPresence!=presence) || (newSizeVessel!= sizeVessel))
+            if ((newPresence!=presence) || (newTemperature!= temperature))
             {
               presenceCharacteristic.setValue(newPresence); // Set presence bool
-              sizeCharacteristic.setValue(newSizeVessel); // Set vessel size double
+              temperatureCharacteristic.setValue(newTemperature); // Set vessel size double
               
               if (dataNeedsAdjustement = false) set_acquire_8b(sensorOutput);
               else
@@ -252,16 +250,12 @@ void loop()
                   Serial.println(newPresence);
                 }
                 
-                if (SIZE_DETECTION_ACTIVE == 1)
+                if (TEMPERATURE_DETECTION_ACTIVE == 1)
                 {
-                  if (newPresence == false) newSizeVessel = 0.0; 
-                  else
-                  {
-                     newSizeVessel = detectSize(sensorOutputAdd);
-                  }
+                  newTemperature; //=  ## Steph's temp stuff;
                   Serial.print("| ");
-                  Serial.print("Vessel Size: ");
-                  Serial.println(newSizeVessel);
+                  Serial.print("Temperature: ");
+                  Serial.println(newTemperature);
                 }
             } 
           }
@@ -499,37 +493,6 @@ bool detectPresence(uint8_t *data)
   } 
   if (numLowPixels >= NUM_PIXELS/4) return true;
   else return false; 
-}
-
-double detectSize(uint8_t *data)
-{
-  uint8_t oldMax = -1; 
-  uint8_t oldMin = 257; 
-  uint8_t maxValue = 0; 
-  uint8_t minValue = 0; 
-  double  numLowPixels = 0.0; 
-  double  pixelSize = 0.0; 
-  
-  for (int i = 0; i < (TX_LEN - 12 - 2); i++)
-  {
-    maxValue = max(oldMax, data[i]);
-    oldMax = data [i]; 
-    
-    minValue = min(oldMin, data[i]);
-    oldMin = data [i]; 
-  } 
-
-  for (int i = 0; i < (TX_LEN - 12 - 2); i++)
-  {
-    if (data [i] < maxValue && data [i] > minValue) 
-    {
-      numLowPixels ++;
-    }
-  } 
-
-  pixelSize = numLowPixels * PIXEL_HEIGHT + (numLowPixels - 1) * PIXEL_PITCH;
-
-  return pixelSize;
 }
 
 bool adjustSaturation (uint8_t *data)

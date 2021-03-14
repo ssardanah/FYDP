@@ -4,14 +4,14 @@
 
 
 bool presence = false; 
-byte sizeVessel = 0.0; 
-bool newPresence; 
-byte newSizeVessel; 
+bool newPresence;
+byte temperature = 0.0; 
+byte newTemperature;  
 
-BLEService bloodVesselDetectionService("180C");  // User defined service
+BLEService bloodVesselDetectionService("0000180C-0000-1000-8000-00805F9B34FB");  // User defined service
 
-BLEBooleanCharacteristic presenceCharacteristic("2A56", BLERead | BLENotify); // standard 16-bit characteristic UUIDm clients will only be able to read an be notified of an update this
-BLEByteCharacteristic sizeCharacteristic("2A57", BLERead | BLENotify);
+BLEBooleanCharacteristic presenceCharacteristic("00002866-0000-1000-8000-00805F9B34FB", BLERead); // standard 16-bit characteristic UUIDm clients will only be able to read an be notified of an update this
+BLEByteCharacteristic temperatureCharacteristic("00002867-0000-1000-8000-00805F9B34FB", BLERead); // standard 16-bit characteristic UUIDm clients will only be able to read an be notified of an update this
 
 void setup() {
   Serial.begin(9600);    // initialize serial communication
@@ -29,17 +29,19 @@ void setup() {
   BLE.setAdvertisedService(bloodVesselDetectionService); // Advertise service
   
   bloodVesselDetectionService.addCharacteristic(presenceCharacteristic); // Add 1st characteristic to service
-  bloodVesselDetectionService.addCharacteristic(sizeCharacteristic); // Add 2nd characteristic to service
+  bloodVesselDetectionService.addCharacteristic(temperatureCharacteristic); // Add 1st characteristic to service
+  
   BLE.addService(bloodVesselDetectionService); // Add service
   
   presenceCharacteristic.setValue(presence); // Set presence bool
-  sizeCharacteristic.setValue(sizeVessel); // Set vessel size double
+  presenceCharacteristic.setValue(temperature); // Set presence bool
 
   BLE.advertise();  // Start advertising
   Serial.print("Peripheral device MAC: ");
   Serial.println(BLE.address());
   Serial.println("Waiting for connections...");
 
+  BLE.advertise(); 
   // To do: SPI setup-here
 }
 

@@ -24,9 +24,9 @@ void setup() {
 
 void loop() {
   delay (1000);
-  setPotValue(newPotValue);
-  potValue = newPotValue; 
-  newPotValue = potValue + POT_INCREMENT;
+  setPotValue(0x55);
+  //potValue = newPotValue; 
+  //newPotValue = potValue + POT_INCREMENT;
 }
 
 void setPotValue (byte hexResistance)
