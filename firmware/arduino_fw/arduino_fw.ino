@@ -188,7 +188,13 @@ void loop()
   
   if (SYS_MODE == 1)
   {
-    set_acquire_8b(sensorOutputAdd);
+    if (dataNeedsAdjustement = false) set_acquire_8b(sensorOutput);
+    else
+    {
+      set_acquire_8b(sensorOutput);
+      adjustSaturation (sensorOutput); 
+    }
+        
     for (int i = 1; i < NUM_PIXELS-1; i++)
     {
       Serial.print("Pixel Number: ");
