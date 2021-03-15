@@ -13,7 +13,6 @@
 #define TEMPERATURE_DETECTION_ACTIVE  1
 #define PIXEL_HEIGHT                  100 // micrometers
 #define PIXEL_PITCH                   50  // micrometers
-#define PRESENCE_DETECTION_ACTIVE     1
 
 // SPI Defines
 #define FRAME_READY        9
@@ -776,8 +775,8 @@ bool detectPresence(uint8_t *data)
 //  Serial.println(partConcave);
 //  Serial.print("Slope:  ");
 //  Serial.println(slope[0]);
-    Serial.print("Presence type: ");
-    Serial.println(presence); 
+//    Serial.print("Presence type: ");
+//    Serial.println(presence); 
               
   /*final return*/ 
   if (presence > 0) return true; 
