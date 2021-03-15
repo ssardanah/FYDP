@@ -19,9 +19,6 @@
 #define FRAME_READY        9
 #define CS_SENSOR          6 
 #define CS_POT             4 
-#define MOSI               11
-#define MISO               12
-#define SCK                13
 #define IR_LED             5
 #define DATA_STATUS_LED    7
 #define CLK_SPEED          4000000
@@ -186,12 +183,12 @@ void loop()
   
   if (SYS_MODE == 1)
   {
-    if (dataNeedsAdjustement = false) set_acquire_8b(sensorOutput);
-    else
-    {
-      set_acquire_8b(sensorOutput);
-      adjustSaturation (sensorOutput); 
-    }
+//    if (dataNeedsAdjustement = false) set_acquire_8b(sensorOutput);
+//    else
+//    {
+//      set_acquire_8b(sensorOutput);
+//      adjustSaturation (sensorOutput); 
+//    }
         
     for (int i = 1; i < NUM_PIXELS-1; i++)
     {
@@ -242,12 +239,12 @@ void loop()
           temperature = newTemperature;
         }
           
-        if (dataNeedsAdjustement = false) set_acquire_8b(sensorOutput);
-        else
-        {
-          set_acquire_8b(sensorOutput);
-          adjustSaturation (sensorOutput); 
-        }
+//        if (dataNeedsAdjustement = false) set_acquire_8b(sensorOutput);
+//        else
+//        {
+//          set_acquire_8b(sensorOutput);
+//          adjustSaturation (sensorOutput); 
+//        }
         
 //        for (int i = 0; i <= (TX_LEN-12-2); i++)
 //        {
