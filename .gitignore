@@ -1,5 +1,7 @@
-monte_carlo_script/MonteCarlo/OutputAndData/
 *.bin
 *.asv
 *.jpg
 *.mci
+*.DS_Store
+.DS_Store
+firmware/.DS_Store

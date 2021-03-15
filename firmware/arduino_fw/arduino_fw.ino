@@ -6,14 +6,14 @@
 #define peripheralName    "HaemoLuminate"
 
 //System Defines
-#define SYS_MODE  2 // 2 for BLE 1 for sensing 0 for testing
+#define SYS_MODE  1 // 2 for BLE 1 for sensing 0 for testing
                     // Specify test command on line 132
 
 #define PRESENCE_DETECTION_ACTIVE     1
 #define TEMPERATURE_DETECTION_ACTIVE  1
 #define PIXEL_HEIGHT                  100 // micrometers
 #define PIXEL_PITCH                   50  // micrometers
-#define PRESENCE_DETECTION_ACTIVE     0
+#define PRESENCE_DETECTION_ACTIVE     1
 
 // SPI Defines
 #define FRAME_READY        9
@@ -144,12 +144,10 @@ void setup()
     Serial.println("Waiting for connections...");
   }
   BLE.advertise(); 
-  
-  pinMode(CS_POT, OUTPUT);
+
   potValue = POT_INITIAL;
   dataNeedsAdjustement = true; 
   
-  pinMode(5, OUTPUT); //LED control 
   // Setup serial monitor & SPI protocol
   Serial.begin(9600); 
  
@@ -241,7 +239,7 @@ void loop()
           presenceCharacteristic.setValue(newPresence); // Set presence bool
           temperatureCharacteristic.setValue(temperatureOutput); // Set Temperature byte
           presence = newPresence;
-          temperature = newTemperature; 
+          temperature = newTemperature;
         }
           
         if (dataNeedsAdjustement = false) set_acquire_8b(sensorOutput);
@@ -251,14 +249,14 @@ void loop()
           adjustSaturation (sensorOutput); 
         }
         
-        for (int i = 0; i <= (TX_LEN-12-2); i++)
-        {
-          Serial.print("Pixel Number: ");
-          Serial.print(i);
-          Serial.print("| ");
-          Serial.print("Raw Intensity: ");
-          Serial.println(sensorOutputAdd[i]);
-        }
+//        for (int i = 0; i <= (TX_LEN-12-2); i++)
+//        {
+//          Serial.print("Pixel Number: ");
+//          Serial.print(i);
+//          Serial.print("| ");
+//          Serial.print("Raw Intensity: ");
+//          Serial.println(sensorOutputAdd[i]);
+//        }
   
         if (PRESENCE_DETECTION_ACTIVE == 1)
         {
@@ -523,7 +521,7 @@ bool detectPresence(uint8_t *data)
 //       Serial.print(i);
 //       Serial.print("| ");
 //       Serial.print("Raw Intensity: ");
-//       Serial.println(data2[counter]*(255.0)); 
+////       Serial.println(data2[counter]*(255.0)); 
 //       Serial.println(data2[counter]); 
        counter ++; 
     
