@@ -28,7 +28,7 @@
 // Sensor Defines
 #define MLX75306_SPI_FRAME_SIZE 24
 
-#define MLX75306_NOP  0b0000000
+#define MLX75306_NOP  0b00000000
 #define MLX75306_CR   0b11110000
 #define MLX75306_RT   0b11011000
 #define MLX75306_WT   0b11001100
@@ -119,6 +119,9 @@ void setup()
   SET_BUILTIN_LED.output();
   READ_FRAME_READY.input();
   SET_DATA_STATUS_LED.output();
+
+  SET_CS_SENSOR = HIGH;
+  delay(1000);
   
   if (SYS_MODE == 2)
   {
@@ -154,7 +157,7 @@ void setup()
   // Setup SPI protocol
   SPI.begin();
   // SPI Settings: 
-  // Max speed is 20MHz , used 14MHz
+  // Max speed is 20MHz , used 4MHz
   // Clock is idle high (CPOL = 1). Data sampled at rising edge & shifted at falling edge (CPHA = 1).
   // Therefore SPI mode = 3
   SPI.beginTransaction(SPISettings(CLK_SPEED, MSBFIRST, SPI_MODE3)); 
@@ -173,12 +176,12 @@ void setup()
   // Start detection
   set_thresholds(THRESH_LOW,THRESH_HIGH);
   start();  
+
+  SET_IR_LED = HIGH; // turn LEDs on
 }
 
 void loop() 
-{
-  SET_IR_LED = HIGH; // turn LEDs on
-  
+{  
   // Allocate memory for data
   uint8_t* sensorOutput = (uint8_t*)malloc(NUM_PIXELS); // 8-bit ADC output, length excludes junk data
   uint8_t* sensorOutputAdd = sensorOutput;
@@ -231,7 +234,7 @@ void loop()
       Serial.println(central.address());
       
       // Turn on the LED to indicate the connection:
-      digitalWrite(LED_BUILTIN, HIGH);
+      SET_BUILTIN_LED = HIGH;
        
       while (central.connected()){
         if ((newPresence!=presence) || (temperatureOutput!= temperature))
@@ -242,7 +245,10 @@ void loop()
           temperature = newTemperature;
         }
           
-        if (dataNeedsAdjustement = false) set_acquire_8b(sensorOutput);
+        if (dataNeedsAdjustement = false) 
+        {
+          set_acquire_8b(sensorOutput);
+        }
         else
         {
           set_acquire_8b(sensorOutput);
@@ -284,8 +290,14 @@ void loop()
   else if (SYS_MODE == 0)
   {
     bool result = zebraTest(MLX75306_TZ0,sensorOutput);
-    if (result == 1) Serial.println("Test Passed");
-    else if (result == 0) Serial.println("Test Failed");
+    if (result == 1) 
+    {
+      Serial.println("Test Passed");
+    }
+    else if (result == 0) 
+    {
+      Serial.println("Test Failed");
+    }
   }
   
   free(sensorOutputAdd); 
@@ -415,6 +427,7 @@ void set_acquire_8b(uint8_t *data){
   SET_DATA_STATUS_LED = LOW;
   free(tx_buffer);
 
+  SPI.beginTransaction(SPISettings(CLK_SPEED, MSBFIRST, SPI_MODE3)); 
   SET_CS_SENSOR = LOW;
   SPI.transfer(MLX75306_CR);
   SPI.transfer(MLX75306_NOP);
@@ -515,16 +528,8 @@ bool detectPresence(uint8_t *data)
   double data2[(NUM_PIXELS - 2)];
  
   for (int i=1; i<(NUM_PIXELS - 1); i++){
-   
        data2[counter] = (double)(data[i]/255.0);
-//       Serial.print("Pixel Number: ");
-//       Serial.print(i);
-//       Serial.print("| ");
-//       Serial.print("Raw Intensity: ");
-////       Serial.println(data2[counter]*(255.0)); 
-//       Serial.println(data2[counter]); 
-       counter ++; 
-    
+       counter ++;     
   }
 
    int dataSize = counter;
@@ -564,15 +569,7 @@ bool detectPresence(uint8_t *data)
           dataOut[i] = data2[i];
        }
     }
-//          
-//            for (int i=0; i < dataSize; i++){          
-//                 Serial.print("Pixel Number: ");
-//                 Serial.print(i);
-//                 Serial.print("| ");
-//                 Serial.print("dataOut: ");
-//                 Serial.println(dataOut[i]);  
-//              }
-//             
+              
   /*smooth the signal*/ 
   for(int n = 0; n < (dataSize-4); n=n+5) {  
     arrayB[0] = dataOut[n]; //change back to dataOutTwo if get it working
@@ -595,15 +592,6 @@ bool detectPresence(uint8_t *data)
         finalSignal[i] = smooth[i];
       }
   }
-  
-//  for(int i = 0; i < smoothSize; i ++)
-//  {
-//    Serial.print("final signal index: ");
-//    Serial.print(i); 
-//    Serial.print(" | "); 
-//    Serial.print("value: ");
-//    Serial.println(finalSignal[i]); 
-//   }
  
   /*getting the gradient of finalSignal*/ // TESTED AND WORKS CORRECTLY
   for (int i = 0; i < smoothSize; i++) {
@@ -666,15 +654,6 @@ bool detectPresence(uint8_t *data)
     }
   }
 
-//  for(int i = 0; i < slopeSize; i ++)
-//  {
-//    Serial.print("index of slope array: ");
-//    Serial.print(i); 
-//    Serial.print(" | "); 
-//    Serial.print("slope: ");
-//    Serial.println(slope[i]); 
-//  }
-
   for(int i = 0; i < slopeSize; i ++) {
     if(slope[i] > 0) { //one positive value 
       pos = pos + 1; 
@@ -711,15 +690,6 @@ bool detectPresence(uint8_t *data)
       finalGradient[i] = 0.5 * (fivePoints[i+1] - fivePoints[i-1]); 
     }
   }
-
-//  for(int i = 0; i < fivePointsSize; i ++)
-//  {
-//    Serial.print("finalGradient index: ");
-//    Serial.print(i); 
-//    Serial.print("value: ");
-//    Serial.println(finalGradient[i]); 
-//  }
-
 
     /*check for clear dip*/ 
     for(int i = 0; i < (fivePointsSize - 2); i ++) { 
