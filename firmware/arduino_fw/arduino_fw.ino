@@ -555,19 +555,19 @@ bool detectPresence(uint8_t *data)
   for(int i = 0; i < dataSize; i ++) {
     if(i == 0 || i == (dataSize - 1)) {
       dataOut[i] = data2[i];
-    } else if((((1.10*data2[i-1]) < data2[i]) && (data2[i] > (1.10*data2[i+1]))) || (((0.9*dataOut[i-1]) > dataOut[i]) && (dataOut[i] < (0.9*dataOut[i+1])))) {
+    } else if((((1.10*data2[i-1]) < data2[i]) && (data2[i] > (1.10*data2[i+1]))) || (((0.9*data2[i-1]) > data2[i]) && (data2[i] < (0.9*data2[i+1])))) {
          dataOut[i] = (data2[i-1] + data2[i+1])/(2.00);
       } else {
           dataOut[i] = data2[i];
        }
     }
 //          
-//            for (int i=0; i < dataSize; i++){          
-//                 Serial.print("Pixel Number: ");
-//                 Serial.print(i);
-//                 Serial.print("| ");
-//                 Serial.print("dataOut: ");
-//                 Serial.println(dataOut[i]);  
+//for (int i=0; i < dataSize; i++){          
+// Serial.print("Pixel Number: ");
+// Serial.print(i);
+// Serial.print("| ");
+// Serial.print("dataOut: ");
+// Serial.println(dataOut[i]);  
 //              }
 //             
   /*smooth the signal*/ 
