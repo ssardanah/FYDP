@@ -6,22 +6,19 @@
 #define peripheralName    "HaemoLuminate"
 
 //System Defines
-#define SYS_MODE  1 // 2 for BLE 1 for sensing 0 for testing
+#define SYS_MODE  2 // 2 for BLE 1 for sensing 0 for testing
                     // Specify test command on line 132
 
 #define PRESENCE_DETECTION_ACTIVE     1
 #define TEMPERATURE_DETECTION_ACTIVE  1
 #define PIXEL_HEIGHT                  100 // micrometers
 #define PIXEL_PITCH                   50  // micrometers
-#define PRESENCE_DETECTION_ACTIVE     1
+
 
 // SPI Defines
 #define FRAME_READY        9
 #define CS_SENSOR          6 
 #define CS_POT             4 
-#define MOSI               11
-#define MISO               12
-#define SCK                13
 #define IR_LED             5
 #define DATA_STATUS_LED    7
 #define CLK_SPEED          4000000
@@ -92,7 +89,7 @@ byte temperature = 0.0;
 bool newPresence; 
 byte newTemperature;
  
-#ifdef SYS_MODE == 1
+#ifdef SYS_MODE == 2
 BLEService bloodVesselDetectionService("0000180C-0000-1000-8000-00805F9B34FB");  // User defined service
 BLEBooleanCharacteristic presenceCharacteristic("00002866-0000-1000-8000-00805F9B34FB", BLERead); // standard 16-bit characteristic UUIDm clients will only be able to read an be notified of an update this
 BLEDoubleCharacteristic temperatureCharacteristic("00002867-0000-1000-8000-00805F9B34FB", BLERead); // standard 16-bit characteristic UUIDm clients will only be able to read an be notified of an update this
@@ -145,8 +142,9 @@ void setup()
     Serial.print("Peripheral device MAC: ");
     Serial.println(BLE.address());
     Serial.println("Waiting for connections...");
+    BLE.advertise(); 
   }
-  BLE.advertise(); 
+
 
   potValue = POT_INITIAL;
   dataNeedsAdjustement = true; 
@@ -189,12 +187,12 @@ void loop()
   
   if (SYS_MODE == 1)
   {
-    if (dataNeedsAdjustement = false) set_acquire_8b(sensorOutput);
-    else
-    {
-      set_acquire_8b(sensorOutput);
-      adjustSaturation (sensorOutput); 
-    }
+//    if (dataNeedsAdjustement = false) set_acquire_8b(sensorOutput);
+//    else
+//    {
+//      set_acquire_8b(sensorOutput);
+//      adjustSaturation (sensorOutput); 
+//    }
         
     for (int i = 1; i < NUM_PIXELS-1; i++)
     {
@@ -245,24 +243,24 @@ void loop()
           temperature = newTemperature;
         }
           
-        if (dataNeedsAdjustement = false) 
-        {
-          set_acquire_8b(sensorOutput);
-        }
-        else
-        {
-          set_acquire_8b(sensorOutput);
-          adjustSaturation (sensorOutput); 
-        }
-        
-//        for (int i = 0; i <= (TX_LEN-12-2); i++)
+//        if (dataNeedsAdjustement = false) 
 //        {
-//          Serial.print("Pixel Number: ");
-//          Serial.print(i);
-//          Serial.print("| ");
-//          Serial.print("Raw Intensity: ");
-//          Serial.println(sensorOutputAdd[i]);
+//          set_acquire_8b(sensorOutput);
 //        }
+//        else
+//        {
+//          set_acquire_8b(sensorOutput);
+//          adjustSaturation (sensorOutput); 
+//        }
+        
+        for (int i = 0; i <= (TX_LEN-12-2); i++)
+        {
+          Serial.print("Pixel Number: ");
+          Serial.print(i);
+          Serial.print("| ");
+          Serial.print("Raw Intensity: ");
+          Serial.println(sensorOutputAdd[i]);
+        }
   
         if (PRESENCE_DETECTION_ACTIVE == 1)
         {
@@ -529,6 +527,11 @@ bool detectPresence(uint8_t *data)
  
   for (int i=1; i<(NUM_PIXELS - 1); i++){
        data2[counter] = (double)(data[i]/255.0);
+        Serial.print("Pixel Number: ");
+        Serial.print(counter);
+        Serial.print("| ");
+        Serial.print("Raw Intensity: ");
+        Serial.println(data2[counter]*255.0);
        counter ++;     
   }
 

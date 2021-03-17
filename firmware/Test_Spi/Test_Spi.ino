@@ -15,6 +15,9 @@ void setup() {
   csPin.output();
   frPin.input();
   Serial.begin(9600);
+  csPin = HIGH;
+  delay(2000);
+  
   while(!Serial);
   Serial.println("Start setup");
 
@@ -67,6 +70,8 @@ void loop() {
 
   
   uint8_t test = 0xFF;
+  
+  
   // put your main code here, to run repeatedly:
   SPI.beginTransaction(SPISettings(CLK_SPEED, MSBFIRST, SPI_MODE3));
   csPin = LOW;
@@ -102,6 +107,16 @@ void loop() {
     Serial.println(tx_buffer[i]);
   }
 
-  delay(500);
+  SPI.beginTransaction(SPISettings(CLK_SPEED, MSBFIRST, SPI_MODE3));
+  csPin = LOW;
+  Serial.println("Sent CR");
+  test = SPI.transfer(0xF0);
+  SPI.transfer(0x00);
+  SPI.transfer(0x00);
+  Serial.print("Received : ");
+  Serial.println(test);
+  
+  csPin = HIGH;
+  SPI.endTransaction();
   
 }
